@@ -3180,7 +3180,17 @@ function kpiClick(key) {
 function renderCharts() {
   renderStockChart();
   const statusCounts = new Map();
-  const chartColors = ['#436af0','#20ac82','#f2a342','#996bdc','#ee6578','#1ea2d5','#7690a8'];
+  // Each status keeps the color of its tile in Dashboard Overview.
+  const STATUS_CHART_COLORS = {
+    'awaiting unit': '#f6a03a', 'awaiting handset': '#f6a03a',   // Awaiting Units tile (orange)
+    'for release': '#2fa8f0',                                     // no tile of its own: blue
+    'fulfilled': '#4cc45a',                                       // Fulfilled tile (green)
+    'cancelled': '#f0533e',                                       // Cancelled tile (red)
+    'lapsed': '#b07cf0', 'expired': '#b07cf0',                    // Lapsed tile (purple)
+    'available units': '#f2c230'                                  // Available Units tile (yellow)
+  };
+  const spareColors = ['#22c4c9', '#8b95a8', '#3b4fe0', '#8fd13a'];
+  const colorOf = (s, i) => STATUS_CHART_COLORS[String(s).trim().toLowerCase()] || spareColors[i % spareColors.length];
   const ordered = [...new Set([...S.statuses.map(statusLabel), ...S.rows.map(r=>statusLabel(r.status))])];
   ordered.forEach(s => statusCounts.set(s,0));
   S.rows.forEach(r => statusCounts.set(statusLabel(r.status),(statusCounts.get(statusLabel(r.status)) || 0) + 1));
@@ -3189,7 +3199,7 @@ function renderCharts() {
   let pct=0;
   const stops=values.map(([,value],i)=>{
     const from=pct; pct+=(value/total)*100;
-    return chartColors[i%chartColors.length]+' '+from.toFixed(4)+'% '+pct.toFixed(4)+'%';
+    return colorOf(values[i][0], i)+' '+from.toFixed(4)+'% '+pct.toFixed(4)+'%';
   });
   const ring = stops.length ? `conic-gradient(${stops.join(',')})` : '#e8edf7';
   const rows= total ? values : [...statusCounts.entries()].slice(0,4);
@@ -3209,7 +3219,7 @@ function renderCharts() {
     return `<span class="donut-slice-label" aria-hidden="true" title="${esc(s)}: ${statusPercent(n)}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%">${statusPercent(n)}</span>`;
   }).join('');
   $('statusChart').innerHTML = `<div class="donut-chart" style="--ring:${ring}" role="img" aria-label="Status percentages for ${total} requests: ${values.map(([s,n])=>s+' '+statusPercent(n)).join(', ')}">${sliceLabels}<div class="donut-center"><span class="donut-count">${formatCount(total)}</span><span class="donut-caption">Total Requests</span></div></div>
-    <div class="status-legend">${rows.map(([s,n],i)=>`<div class="legend-row" title="${esc(s)}: ${formatCount(n)} requests (${statusPercent(n)})"><span class="legend-dot" style="background:${chartColors[i%chartColors.length]}"></span><span class="legend-label">${esc(s)}</span><span class="legend-count">${formatCount(n)}</span></div>`).join('') || '<span class="note">No requests yet</span>'}</div>`;
+    <div class="status-legend">${rows.map(([s,n],i)=>`<div class="legend-row" title="${esc(s)}: ${formatCount(n)} requests (${statusPercent(n)})"><span class="legend-dot" style="background:${colorOf(s, i)}"></span><span class="legend-label">${esc(s)}</span><span class="legend-count">${formatCount(n)}</span></div>`).join('') || '<span class="note">No requests yet</span>'}</div>`;
 }
 function toggleSidebar(force) {
   const on = typeof force === 'boolean' ? force : !document.body.classList.contains('sidebar-open');
