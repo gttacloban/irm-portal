@@ -2602,6 +2602,8 @@ function init(d) {
   if (!S.policyShown) { S.policyShown = true; setTimeout(showPolicy, 300); }
   S.loaded = true;
   Object.assign(S, d);
+  // "Checking unit…" belongs to a request in progress on this page only, never to saved data.
+  (S.rows || []).forEach(r => { if (r && r.checking) delete r.checking; });
   // Color visibility always originates from the authenticated central backend.
   S.colorSyncReady = Array.isArray(d.hiddenColors);
   S.hiddenColors = S.colorSyncReady ? [...new Set(d.hiddenColors.map(norm).filter(Boolean))] : [];
@@ -3760,6 +3762,19 @@ function submitForm(e) {
 }
 
 /* ================= Status / Delete (admin) ================= */
+/* "Checking unit…" must never stay on screen. If the server has not answered after
+   25 seconds, the row shows its saved status again and the latest data is loaded. */
+const CHECK_LIMIT_MS = 25000;
+function watchChecking(id) {
+  setTimeout(() => {
+    const r = S.rows.find(x => x.id === id);
+    if (!r || !r.checking) return;
+    r.checking = false;
+    render();
+    toast('The server is slow to answer. Showing the latest saved status…', true);
+    api('init').then(d => { S.fresh = false; init(d); try { refreshAvailableUnits(); } catch (e) {} }).catch(() => {});
+  }, CHECK_LIMIT_MS);
+}
 function changeStatus(id, status) {
   if (!S.admin) return;
   const r = S.rows.find(x => x.id === id);
@@ -3768,7 +3783,7 @@ function changeStatus(id, status) {
   // For Release needs a free unit, and the server may refuse: show "Checking…" instead of
   // a hold that might not exist, and switch only when the server has found the unit.
   const needsUnit = status === 'For Release' && old !== 'For Release';
-  if (needsUnit) r.checking = true;
+  if (needsUnit) { r.checking = true; watchChecking(id); }
   else r.status = status;
   render();
   api('status', { id: id, status: status })
@@ -3776,8 +3791,11 @@ function changeStatus(id, status) {
       if (res && res.row) { Object.assign(r, res.row); if (res.usedFrom) { const oldUnit = S.rows.find(x => x.id === res.usedFrom); if (oldUnit) oldUnit.reassignedTo = id; } }
       if (res && 'holdUntil' in res) r.holdUntil = res.holdUntil;
       r.checking = false; if (needsUnit && !(res && res.row)) r.status = status;
+      const now = S.rows.find(x => x.id === id); if (now && now !== r) { now.checking = false; if (res && res.row) Object.assign(now, res.row); }
       render(); refreshAvailableUnits(); toast(id + ' → ' + statusLabel(status) + (status === 'For Release' && old !== 'For Release' ? ` (${HOLD_MAX}h hold started)` : '')); })
-    .catch(err => { r.checking = false; r.status = old; r.holdUntil = oldHold; render(); toast(err.message, true); });
+    .catch(err => { r.checking = false; r.status = old; r.holdUntil = oldHold;
+      const now = S.rows.find(x => x.id === id); if (now) now.checking = false;
+      render(); toast(err.message, true); });
 }
 
 function removeRow(id) {
@@ -3814,18 +3832,15 @@ function holdRequest(id) {
   if (!S.admin) return;
   const r = S.rows.find(x => x.id === id);
   if (!r) return;
+  // Starting or extending a hold needs no confirmation. Taking a unit back from another
+  // customer still asks first, because that customer's request goes back to waiting.
   const takeBack = isLapsed(r.status) && r.reassignedTo;
-  const msg = takeBack
-    ? `Take the unit back for ${r.first} ${r.last}?\n${r.handset} (${r.color})\n\nThe unit is now with ${r.reassignedTo}. That request goes back to Awaiting Unit, and ${r.id} gets a new hold.`
-    : r.status === 'For Release'
-      ? `Extend the hold for ${r.first} ${r.last}?\n${r.handset} (${r.color})\n\nThe countdown starts again from now.`
-      : `Start a ${HOLD_MAX}-hour hold for ${r.first} ${r.last}?\n${r.handset} (${r.color})\n\nThe hold lapses automatically after ${HOLD_MAX} hours.`;
-  if (!confirm(msg)) return;
+  if (takeBack && !confirm(`Take the unit back for ${r.first} ${r.last}?\n${r.handset} (${r.color})\n\nThe unit is now with ${r.reassignedTo}. That request goes back to Awaiting Unit, and ${r.id} gets a new hold.`)) return;
   const hours = HOLD_MAX;
   const backup = { ...r };
   // Extending a hold is shown at once; a new hold waits for the server to find a unit.
   if (r.status === 'For Release') { r.holdUntil = Date.now() + hours * 3600000; r.releasedAt = 0; }
-  else r.checking = true;
+  else { r.checking = true; watchChecking(id); }
   render();
   api('hold', { id: id, hours: hours })
     .then(res => {
@@ -3837,7 +3852,9 @@ function holdRequest(id) {
       refreshAvailableUnits();
       toast(res.revertedId ? `Unit taken back: ${id} → For Release · ${res.revertedId} → Awaiting Unit` : `${id} on hold`);
     })
-    .catch(err => { Object.assign(r, backup); r.checking = false; render(); toast(err.message, true); });
+    .catch(err => { Object.assign(r, backup); r.checking = false;
+      const now = S.rows.find(x => x.id === id); if (now) now.checking = false;
+      render(); toast(err.message, true); });
 }
 /* Available Units = Status "Available Units" + unassigned Hold Expired.
    Do not count separately admin-entered Inventory units. */
