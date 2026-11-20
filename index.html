@@ -1564,6 +1564,13 @@ a.nav-item:hover{color:#274ebd}
 .rv-btns{display:inline-flex;gap:2px}
 .rv-btns button{width:24px;height:24px;border-radius:6px;border:0;background:rgba(127,140,170,.18);color:inherit;font-size:12px;cursor:pointer}
 .rv-btns button:hover{background:rgba(127,140,170,.35)}
+/* Inventory table: one-line chips side by side, like the design */
+.oh-table .rv-list,.oh-card .rv-list{flex-direction:row;flex-wrap:wrap;gap:5px}
+.oh-table .rv-chip{flex-wrap:nowrap;white-space:nowrap;gap:5px;padding:3px 4px 3px 8px;font-size:11.5px}
+.oh-table .rv-chip .rv-date{display:none}
+.oh-table .rv-btns button{width:20px;height:20px;font-size:10.5px}
+.oh-table td:nth-child(2){min-width:170px;font-weight:650}
+.oh-table td:nth-child(6),.oh-table td:nth-child(7){min-width:220px}
 @media (max-width:700px){ .oh-card-rv{align-items:flex-start} }
 /* colored summary tiles (On-Hand Stock) */
 .inv-tile{position:relative;overflow:hidden;text-align:left;font:inherit;cursor:default;color:#fff;border:0 !important;
@@ -2927,6 +2934,12 @@ const resvState = r => (r.status === 'Active' || r.status === 'Lapsed') && r.hol
   : r.status === 'Lapsed' ? 'Active' : r.status;
 const isOpenResv = r => ['Pending', 'Active', 'Lapsed'].includes(resvState(r));
 const openResvOf = pid => resvList().filter(r => r.productId === pid && isOpenResv(r));
+// Short form for chips: 41h, 35m, Lapsed, Not started.
+function shortTimer(r) {
+  const t = resvTimerText(r);
+  const m = /^(\d+)h (\d+)m left$/.exec(t);
+  return m ? (Number(m[1]) ? m[1] + 'h' : Number(m[2]) + 'm') : t;
+}
 function resvTimerText(r) {
   const st = resvState(r);
   if (st === 'Pending') return 'Not started';
@@ -2967,7 +2980,7 @@ function resvChip(r) {
       <button type="button" title="Cancel${r.taken ? ': 1 unit goes back to Qty' : ''}" onclick="resvDo('${esc(r.id)}','cancel')">✕</button></span>` : '';
   const rq = r.po ? S.rows.find(x => x.id === r.po) : null;
   const who = r.po ? `<b class="rv-po" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.po)}',this)">${esc(r.po)} · ${esc(rq ? custName(rq) : r.seller)}</b>` : `<b>${esc(r.seller)}</b>`;
-  return `<span class="rv-chip ${cls}${r.pending ? ' pending' : ''}">${who}<span class="rv-meta">${esc(r.resvDate || '')} · ⏱ ${esc(resvTimerText(r))}</span>${btns}</span>`;
+  return `<span class="rv-chip ${cls}${r.pending ? ' pending' : ''}" title="${esc((r.resvDate ? 'Resv date ' + r.resvDate + ' · ' : '') + resvTimerText(r))}">${who}<span class="rv-meta"><span class="rv-date">${esc(r.resvDate || '')} · </span>⏱ ${esc(shortTimer(r))}</span>${btns}</span>`;
 }
 function renderOnHand() {
   if (!$('ohBody')) return;
@@ -3873,7 +3886,8 @@ function productPicked() {
   const p = ohList().find(x => x.id === $('f_product').value);
   if (p && !$('f_handset').value.trim()) $('f_handset').value = p.desc;
 }
-const custName = r => { const n = [r.first, r.last].filter(x => x && !/^n\/?a$/i.test(String(x).trim())).join(' ').trim(); return n || 'No name'; };
+const titleCase = t => String(t || '').toLowerCase().replace(/(^|[\s'-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
+const custName = r => { const n = [r.first, r.last].filter(x => x && !/^n\/?a$/i.test(String(x).trim())).join(' ').trim(); return n ? titleCase(n) : 'No name'; };
 // Open requests linked to a product (waiting, reserved or lapsed).
 const reqsOf = pid => S.rows.filter(r => r.productId === pid && !r.spare && !['Fulfilled', 'Cancelled'].includes(r.status));
 const reqHit = (r, q) => norm([r.id, r.first, r.last, r.mobile, r.waitlist].join(' ')).includes(q) ||
