@@ -1436,6 +1436,20 @@ a.nav-item:hover{color:#274ebd}
 .available-panel-head-actions .mini{font-size:11px;padding:7px 10px;white-space:nowrap}
 .available-units-list{max-height:330px;overflow-y:auto;scrollbar-width:thin}
 .available-units-list li{gap:8px}
+.available-units-list li.old-unit .old-move{display:flex;gap:6px;margin-top:6px;align-items:center}
+.available-units-list li.old-unit .old-move select{max-width:220px;font-size:12px;padding:5px 8px;border-radius:8px}
+.available-units-list li.avail-group.old{color:#d2960c}
+.wt-chip{display:inline-flex;align-items:center;margin-top:6px;border:1px solid rgba(246,160,58,.55);background:rgba(246,160,58,.14);color:#f6a03a;border-radius:99px;padding:3px 10px;font:inherit;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap}
+.wt-chip:hover{background:rgba(246,160,58,.24)}
+.wait-list{list-style:none;margin:12px 0 0;padding:0;max-height:55vh;overflow-y:auto}
+.wait-list li{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid var(--line)}
+.wait-list .wt-n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:rgba(47,107,255,.14);color:#2f6bff;font-weight:800;font-size:12px;flex:none}
+.wait-list .wt-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.wait-list .wt-main span{font-size:12px;color:var(--muted)}
+.wait-list .wt-empty{color:var(--muted);justify-content:center}
+.wait-list .btn.mini{white-space:nowrap}
+.wait-list .btn[disabled]{opacity:.5;cursor:not-allowed}
+.hint{font-size:11.5px;color:var(--muted);margin-top:4px}
 .available-units-list{max-height:520px;overflow-y:auto;overscroll-behavior:contain}
 .available-units-list li.avail-group{position:sticky;top:0;z-index:1;display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin-top:6px;border-radius:10px;background:var(--card);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 1px 0 var(--line);font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .available-units-list li.avail-group:first-child{margin-top:0}
@@ -1835,7 +1849,7 @@ body.chat-open .chat-fab{display:none}
         <div class="section-heading" id="stockSection"><div><div class="eyebrow">STOCK &amp; DEMAND</div><h2>Stock Insights</h2></div></div>
         <div class="insights-row">
           <section class="panel insight-panel">
-            <div class="panel-heading"><h3>Available Units &amp; In Stock</h3>
+            <div class="panel-heading"><h3>In Stock</h3>
               <div class="available-panel-head-actions">
                 <span class="section-icon">◈</span>
               </div>
@@ -2004,6 +2018,9 @@ body.chat-open .chat-fab{display:none}
       <div><label>Customer Last Name <span class="req">*</span></label><input id="f_last" placeholder="e.g. Eiv" required></div>
       <div><label>Mobile # <span class="req">*</span></label><input id="f_mobile" inputmode="tel" placeholder="09XXXXXXXXX" required></div>
       <div><label>Request Date <span class="req">*</span></label><input id="f_date" type="date" required></div>
+      <div class="full"><label for="f_product">Inventory Product <span class="req">*</span></label>
+        <select id="f_product" required onchange="productPicked()"></select>
+        <div class="hint">Choose the product from Inventory (On-Hand Stock). Choose <b>Not in Inventory</b> only for a model that is not in the list yet.</div></div>
       <div><label>Handset Description <span class="req">*</span></label><input id="f_handset" list="dl_handset" placeholder="e.g. iPhone 17 Pro Max 256GB" required></div>
       <div>
         <div class="color-label-row">
@@ -2108,6 +2125,15 @@ body.chat-open .chat-fab{display:none}
       <div class="full"><div class="sellernote">The reservation is saved as <b>Not started</b>. Press ⏱ on it to start the 48-hour timer: that takes 1 unit off Qty.</div></div>
       <div class="full actions"><button type="button" class="btn btn-light" onclick="closeResvForm()">Cancel</button><button type="submit" class="btn btn-primary">Save</button></div>
     </form>
+  </div>
+</div>
+
+<div class="modal" id="waitModal" style="z-index:80" onclick="if(event.target===this)closeWaiting()">
+  <div class="box">
+    <h2 id="waitTitle">Waiting</h2>
+    <div class="note" id="waitSub"></div>
+    <ul class="wait-list" id="waitBody"></ul>
+    <div class="actions" style="margin-top:12px"><button type="button" class="btn btn-light" onclick="closeWaiting()">Close</button></div>
   </div>
 </div>
 
@@ -2255,7 +2281,7 @@ function isMobileLoginDevice() {
 
 
 function statusKey(s) {
-  return { 'Awaiting Unit': 'aw', 'Awaiting Handset': 'aw', 'For Release': 'fr', 'Fulfilled': 'fu', 'Cancelled': 'ca', 'Expired': 'ex', 'Lapsed': 'ex' }[s] || 'ot';
+  return { 'Awaiting Unit': 'aw', 'Awaiting Handset': 'aw', 'For Release': 'fr', 'Reserved': 'fr', 'Fulfilled': 'fu', 'Cancelled': 'ca', 'Expired': 'ex', 'Lapsed': 'ex' }[s] || 'ot';
 }
 // All dates and times are shown in Philippine time, whatever the device's time zone.
 const PH_TZ = 'Asia/Manila';
@@ -2714,10 +2740,12 @@ function renderKpis() {
   const onHand = stockRows.reduce((a, x) => a + (Number(x.qty) || 0), 0);
   const available = S.availableUnits && Number.isFinite(Number(S.availableUnits.totalUnits)) ? Number(S.availableUnits.totalUnits) : 0;
   const served = Number.isFinite(Number(S.servedAllTime)) ? Number(S.servedAllTime) : fulfilled.length;
+  // Waiting requests that could be reserved now: their Inventory product has enough Qty.
+  const ready = awaiting.filter(r => { const pr = productOf(r); return pr && Number(pr.qty) >= (Number(r.qty) || 1); });
   const units = rows => summarizeUnits(rows) + ' handset units';
   const cards = [
     { label: 'Total Units', value: onHand, subtitle: `${formatCount(stockRows.length)} ${stockRows.length === 1 ? 'product' : 'products'} in inventory`, colors: ['#3b4fe0','#2433b0'], icon: '▦', key: 'nav:inventory' },
-    { label: 'Total Reservations', value: stockReserved.length, subtitle: 'Open reservations (On-Hand Stock)', colors: ['#2fa8f0','#1678c8'], icon: '⊞', key: 'nav:reservations' },
+    { label: 'Total Reservations', value: stockReserved.length, subtitle: 'Open reservations (sellers + requests)', colors: ['#2fa8f0','#1678c8'], icon: '⊞', key: 'nav:reservations' },
     { label: 'Total Pre-Order Requests', value: preorders.length, subtitle: units(preorders), colors: ['#22c4c9','#0b8f9c'], icon: '◎', key: 'cat:Latest Request' },
     { label: 'Total Standard Requests', value: standard.length, subtitle: units(standard), colors: ['#8b95a8','#5f6a80'], icon: '▤', key: 'cat:Standard Request' },
     { label: 'Served', value: served, subtitle: 'Customers who got the handset (incl. archive)', colors: ['#8fd13a','#4f9a12'], icon: '★', key: 'status:Fulfilled' },
@@ -2725,7 +2753,7 @@ function renderKpis() {
     { label: 'Fulfilled', value: fulfilled.length, subtitle: units(fulfilled), colors: ['#4cc45a','#1f8f34'], icon: '✓', key: 'status:Fulfilled' },
     { label: 'Cancelled', value: cancelled.length, subtitle: units(cancelled), colors: ['#f0533e','#c42b1d'], icon: '✕', key: 'status:Cancelled' },
     { label: 'Lapsed', value: lapsed.length, subtitle: units(lapsed), colors: ['#b07cf0','#7c48c9'], icon: '⌛', key: 'status:' + (S.statuses.find(st => isLapsed(st)) || 'Expired') },
-    { label: 'Available Units', value: available, subtitle: 'Hold Expired + Spare Handsets', colors: ['#f2c230','#d2960c'], icon: '▣', key: 'status:Available Units' }
+    { label: 'Ready to Reserve', value: ready.length, subtitle: 'Waiting requests whose product is in stock', colors: ['#f2c230','#d2960c'], icon: '▣', key: 'status:Awaiting Unit' }
   ];
   $('kpis').innerHTML = cards.map(k => {
     const active = (k.key.indexOf('status:') === 0 && S.filter.status === k.key.slice(7)) ||
@@ -2906,7 +2934,7 @@ function resvChip(r) {
       <button type="button" title="${st === 'Pending' ? 'Start the 48-hour timer (takes 1 unit off Qty)' : 'Restart the 48 hours'}" onclick="resvDo('${esc(r.id)}','timer')">⏱</button>
       <button type="button" title="Sold: the customer took the unit" onclick="resvDo('${esc(r.id)}','sold')">✓</button>
       <button type="button" title="Cancel${r.taken ? ': 1 unit goes back to Qty' : ''}" onclick="resvDo('${esc(r.id)}','cancel')">✕</button></span>` : '';
-  return `<span class="rv-chip ${cls}${r.pending ? ' pending' : ''}"><b>${esc(r.seller)}</b><span class="rv-meta">${esc(r.resvDate || '')} · ⏱ ${esc(resvTimerText(r))}</span>${btns}</span>`;
+  return `<span class="rv-chip ${cls}${r.pending ? ' pending' : ''}"><b>${r.po ? esc(r.po) + ' · ' : ''}${esc(r.seller)}</b><span class="rv-meta">${esc(r.resvDate || '')} · ⏱ ${esc(resvTimerText(r))}</span>${btns}</span>`;
 }
 function renderOnHand() {
   if (!$('ohBody')) return;
@@ -2955,7 +2983,8 @@ function renderOnHand() {
       <button class="icon" title="Delete" onclick="stockDelete('${esc(x.id)}')">🗑</button></span>` : '';
   const st = x => `<span class="oh-st ${x.qty ? 'in' : 'out'}">${x.status}</span>`;
   const dates = x => [...new Set(x._resv.map(r => r.resvDate).filter(Boolean))].sort().join('<br>') || '—';
-  const chips = x => x._resv.length ? `<div class="rv-list"><span class="rv-count">Reserved: ${x._resv.length}</span>${x._resv.map(resvChip).join('')}</div>` : '—';
+  const waitChip = x => { const n = waitingFor(x.id).length; return n ? `<button type="button" class="wt-chip" title="Requests waiting for this product" onclick="openWaiting('${esc(x.id)}')">Waiting: ${n}</button>` : ''; };
+  const chips = x => { const w = waitChip(x); return (x._resv.length ? `<div class="rv-list"><span class="rv-count">Reserved: ${x._resv.length}</span>${x._resv.map(resvChip).join('')}</div>` : (w ? '' : '—')) + w; };
   $('ohBody').innerHTML = list.length ? list.map(x => `<tr${x.pending ? ' class="pending"' : ''}>
       <td class="mono">${esc(x.matcode)}</td><td>${esc(x.desc)}</td><td>${esc(x.type)}</td>
       <td>${qtyCell(x)}</td><td>${st(x)}</td><td>${dates(x)}</td><td>${chips(x)}</td>
@@ -2964,7 +2993,7 @@ function renderOnHand() {
   $('ohCards').innerHTML = list.map(x => `<div class="card oh-card">
       <div class="top"><div><div class="nm">${esc(x.desc)}</div><div class="small mono">${esc(x.matcode)} · ${esc(x.type)}</div></div>${st(x)}</div>
       <div class="oh-card-row"><span>Qty</span>${qtyCell(x)}</div>
-      ${x._resv.length ? `<div class="oh-card-row oh-card-rv"><span>Reserved To</span>${chips(x)}</div>` : ''}
+      ${x._resv.length || waitingFor(x.id).length ? `<div class="oh-card-row oh-card-rv"><span>Reserved To</span>${chips(x)}</div>` : ''}
       ${S.admin ? `<div class="oh-card-row oh-card-act">${actions(x)}</div>` : ''}</div>`).join('') ||
       `<div class="note">${all.length ? 'No products match the filters.' : 'No products yet.'}</div>`;
   const n = filteredAll.length;
@@ -2978,6 +3007,7 @@ function renderOnHand() {
   renderTop();   // Inventory Stock Ranking follows the stock
   renderStockChart();
   try { renderAvail(); } catch (e) {}
+  if (S.waitPid && $('waitModal').classList.contains('open')) drawWaiting();
 }
 // keep the timers moving
 setInterval(() => { if (S.loaded && !document.hidden && resvList().some(r => r.holdUntil && isOpenResv(r))) renderOnHand(); }, 30000);
@@ -3132,6 +3162,8 @@ function resvDo(id, what) {
   const action = { timer: 'resvTimer', sold: 'resvSold', cancel: 'resvCancel' }[what];
   api(action, { id: id }).then(res => {
     S.reservations = resvList().map(x => x.id === id ? res.reservation : x);
+    applyResvLists({ request: res.request });     // a reservation for a PO moves its request too
+    if (res.request) render();
     if (res.product) replaceOh(res.product); else { renderOnHand(); renderKpis(); saveCache(); }
     toast(what === 'timer' ? '48-hour timer started' : what === 'sold' ? 'Marked as Sold' : 'Reservation cancelled');
   }).catch(err => {
@@ -3197,7 +3229,7 @@ function renderCharts() {
   // Each status keeps the color of its tile in Dashboard Overview.
   const STATUS_CHART_COLORS = {
     'awaiting unit': '#f6a03a', 'awaiting handset': '#f6a03a',   // Awaiting Units tile (orange)
-    'for release': '#2fa8f0',                                     // no tile of its own: blue
+    'for release': '#2fa8f0', 'reserved': '#2fa8f0',              // Total Reservations tile (blue)
     'fulfilled': '#4cc45a',                                       // Fulfilled tile (green)
     'cancelled': '#f0533e',                                       // Cancelled tile (red)
     'lapsed': '#b07cf0', 'expired': '#b07cf0',                    // Lapsed tile (purple)
@@ -3343,7 +3375,9 @@ function statusCell(r) {
   const style = `background:var(--${sk}-bg);color:var(--${sk}-ink)`;
   if (r.checking) return `<span class="st checking" style="${style}" title="Looking for a free unit for this request">⏳ Checking unit…</span>`;
   if (!S.admin || r.pending || r.spare) return `<span class="st" style="${style}">${esc(statusLabel(r.status))}</span>`;
-  const opts = S.statuses.map(s => `<option value="${esc(s)}" ${sameStatus(s, r.status) ? 'selected' : ''}>${esc(statusLabel(s))}</option>`).join('');
+  // An older status that is no longer a choice (e.g. For Release) is still shown as it is.
+  const choices = S.statuses.some(s => sameStatus(s, r.status)) ? S.statuses : [r.status].concat(S.statuses);
+  const opts = choices.map(s => `<option value="${esc(s)}" ${sameStatus(s, r.status) ? 'selected' : ''}>${esc(statusLabel(s))}</option>`).join('');
   return `<select class="st" style="${style}" onchange="changeStatus('${esc(r.id)}',this.value)">${opts}</select>`;
 }
 
@@ -3630,6 +3664,7 @@ function openForm(id) {
   $('f_date').value = r ? r.date : today();
   $('f_handset').value = r ? r.handset : '';
   $('f_color').value = r ? r.color : '';
+  fillProductPicker(r ? (r.productId || NOT_IN_INV) : '');
   $('f_qty').value = r ? r.qty : 1;
   $('f_type').value = r ? r.type : '';
   $('f_request_category').value = r ? (r.requestCategory || '') : '';
@@ -3729,6 +3764,7 @@ function submitForm(e) {
     handset: $('f_handset').value.trim(), color: $('f_color').value.trim(),
     qty: Number($('f_qty').value) || 1, type: $('f_type').value,
     requestCategory: $('f_request_category').value,
+    productId: $('f_product').value === NOT_IN_INV ? '' : $('f_product').value,
     seller: S.admin ? $('f_seller_admin').value : S.user.name,
     waitlist: S.admin ? ($('f_wl').value.trim() || 'N/A') : 'N/A',
     status: S.admin ? $('f_status').value : firstStatus(),
@@ -3736,6 +3772,7 @@ function submitForm(e) {
     clientSaveId: S.saveClientId || (S.saveClientId = newSaveIdentifier())
   };
   if (S.admin && !o.id && (S.editSpareKey || isSpareStatus(o.status))) return saveSpareFromForm(o);
+  if (!$('f_product').value) return toast('Choose the Inventory Product (or "Not in Inventory")', true);
   if (!/^\+?\d{10,13}$/.test(o.mobile)) return toast('Mobile # is not valid', true);
   if (!o.type || !o.seller) return toast('Select transaction type and seller', true);
   if (!['Reservation', 'Standard Request', 'Latest Request'].includes(o.requestCategory)) return toast('Select request category', true);
@@ -3772,6 +3809,62 @@ function submitForm(e) {
 }
 
 /* ================= Status / Delete (admin) ================= */
+/* ----- Request ↔ Inventory product ----- */
+const NOT_IN_INV = '__none';
+const productOf = r => r && r.productId ? ohList().find(x => x.id === r.productId) : null;
+function fillProductPicker(value) {
+  const list = ohList().slice().sort((a, b) => String(a.type).localeCompare(String(b.type)) || String(a.desc).localeCompare(String(b.desc)));
+  const groups = {};
+  list.forEach(x => { (groups[x.type || 'Other'] = groups[x.type || 'Other'] || []).push(x); });
+  const known = !value || value === NOT_IN_INV || list.some(x => x.id === value);
+  $('f_product').innerHTML = '<option value="">Choose the product…</option>' +
+    `<option value="${NOT_IN_INV}">Not in Inventory (new model)</option>` +
+    (known ? '' : `<option value="${esc(value)}">(product deleted)</option>`) +
+    Object.keys(groups).map(g => `<optgroup label="${esc(g)}">` + groups[g].map(x =>
+      `<option value="${esc(x.id)}">${esc(x.desc)} · ${esc(x.matcode)} · Qty ${formatCount(x.qty)}</option>`).join('') + '</optgroup>').join('');
+  $('f_product').value = value || '';
+}
+// Choosing a product fills the Handset Description when it is empty.
+function productPicked() {
+  const p = ohList().find(x => x.id === $('f_product').value);
+  if (p && !$('f_handset').value.trim()) $('f_handset').value = p.desc;
+}
+// Requests waiting for one product (oldest first).
+function waitingFor(pid) {
+  return S.rows.filter(r => r.productId === pid && !r.pending && !r.spare &&
+    (r.status === 'Awaiting Unit' || r.status === 'Awaiting Handset'))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.id).localeCompare(String(b.id)));
+}
+function openWaiting(pid) {
+  const p = ohList().find(x => x.id === pid); if (!p) return;
+  S.waitPid = pid;
+  drawWaiting();
+  $('waitModal').classList.add('open'); document.body.classList.add('noscroll');
+}
+function closeWaiting() { $('waitModal').classList.remove('open'); document.body.classList.remove('noscroll'); S.waitPid = ''; }
+function drawWaiting() {
+  const p = ohList().find(x => x.id === S.waitPid); if (!p) return closeWaiting();
+  const w = waitingFor(p.id);
+  $('waitTitle').textContent = 'Waiting for ' + p.desc;
+  $('waitSub').innerHTML = `${esc(p.matcode)} · In Stock: <b>${formatCount(p.qty)}</b> · Waiting: <b>${w.length}</b>` +
+    (S.admin ? ` · Reserve takes ${w.length ? '1 unit' : 'a unit'} off Qty and starts 48 hours.` : '');
+  $('waitBody').innerHTML = w.length ? w.map((r, i) => `<li>
+      <span class="wt-n">${i + 1}</span>
+      <span class="wt-main"><b>${esc(r.id)} · ${esc(r.first)} ${esc(r.last)}</b>
+        <span>${esc(r.date)} · ${esc(r.seller)} · ${esc(r.requestCategory === 'Latest Request' ? 'Pre-Order' : r.requestCategory || '')}${r.qty > 1 ? ' · Qty ' + r.qty : ''}</span></span>
+      ${S.admin ? (r.checking ? '<span class="st checking">⏳ Reserving…</span>'
+        : `<button type="button" class="btn btn-primary mini" ${p.qty >= (r.qty || 1) ? '' : 'disabled title="Out of Stock: add the unit with + first"'} onclick="reserveForPO('${esc(r.id)}')">Reserve for ${esc(r.id)}</button>`) : ''}
+    </li>`).join('') : '<li class="wt-empty">Nobody is waiting for this product.</li>';
+}
+// Admin: reserve the product for a request (same as choosing Reserved in the request list).
+function reserveForPO(id) { changeStatus(id, 'Reserved'); }
+// Server answers that touch reservations carry the fresh lists.
+function applyResvLists(res) {
+  if (!res) return;
+  if (Array.isArray(res.reservationsAll)) S.reservations = res.reservationsAll;
+  if (Array.isArray(res.onHand)) S.onHand = res.onHand;
+  if (res.request) { const i = S.rows.findIndex(x => x.id === res.request.id); if (i >= 0) S.rows[i] = Object.assign({}, S.rows[i], res.request, { checking: false }); }
+}
 /* "Checking unit…" must never stay on screen. If the server has not answered after
    25 seconds, the row shows its saved status again and the latest data is loaded. */
 const CHECK_LIMIT_MS = 25000;
@@ -3792,7 +3885,7 @@ function changeStatus(id, status) {
   const old = r.status, oldHold = r.holdUntil;
   // For Release needs a free unit, and the server may refuse: show "Checking…" instead of
   // a hold that might not exist, and switch only when the server has found the unit.
-  const needsUnit = status === 'For Release' && old !== 'For Release';
+  const needsUnit = (status === 'For Release' || status === 'Reserved') && old !== status;
   if (needsUnit) { r.checking = true; watchChecking(id); }
   else r.status = status;
   render();
@@ -3801,6 +3894,7 @@ function changeStatus(id, status) {
       if (res && res.row) { Object.assign(r, res.row); if (res.usedFrom) { const oldUnit = S.rows.find(x => x.id === res.usedFrom); if (oldUnit) oldUnit.reassignedTo = id; } }
       if (res && 'holdUntil' in res) r.holdUntil = res.holdUntil;
       r.checking = false; if (needsUnit && !(res && res.row)) r.status = status;
+      applyResvLists(res);
       const now = S.rows.find(x => x.id === id); if (now && now !== r) { now.checking = false; if (res && res.row) Object.assign(now, res.row); }
       render(); refreshAvailableUnits(); toast(id + ' → ' + statusLabel(status) + (status === 'For Release' && old !== 'For Release' ? ` (${HOLD_MAX}h hold started)` : '')); })
     .catch(err => { r.checking = false; r.status = old; r.holdUntil = oldHold;
@@ -3828,9 +3922,12 @@ function leftText(ms) {
   return h + 'h ' + String(m).padStart(2, '0') + 'm left';
 }
 function holdChip(r) {
-  if (r.status === 'For Release' && r.holdUntil) {
+  if ((r.status === 'For Release' || r.status === 'Reserved') && r.holdUntil) {
     const left = r.holdUntil - Date.now();
     return `<span class="hold ${left < 6 * 3600000 ? 'urgent' : ''}" data-until="${r.holdUntil}">⏱ ${leftText(left)}</span>`;
+  }
+  if (isLapsed(r.status) && resvList().some(v => v.po === r.id && isOpenResv(v))) {
+    return `<span class="hold off" title="The unit stays reserved until Fulfilled, Cancelled, or ⏱ for 48 more hours">Unit still reserved</span>`;
   }
   if (isLapsed(r.status)) {
     const when = r.releasedAt ? new Date(r.releasedAt).toLocaleString('en-US', { timeZone: PH_TZ, month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
@@ -3849,18 +3946,19 @@ function holdRequest(id) {
   const hours = HOLD_MAX;
   const backup = { ...r };
   // Extending a hold is shown at once; a new hold waits for the server to find a unit.
-  if (r.status === 'For Release') { r.holdUntil = Date.now() + hours * 3600000; r.releasedAt = 0; }
+  if (r.status === 'For Release' || r.status === 'Reserved') { r.holdUntil = Date.now() + hours * 3600000; r.releasedAt = 0; }
   else { r.checking = true; watchChecking(id); }
   render();
   api('hold', { id: id, hours: hours })
     .then(res => {
+      applyResvLists(res);
       const i = S.rows.findIndex(x => x.id === id);
-      if (i > -1) S.rows[i] = res.row;
+      if (i > -1 && res.row) S.rows[i] = res.row;
       if (res.usedFrom) { const u = S.rows.find(x => x.id === res.usedFrom); if (u) u.reassignedTo = id; }
       if (res.reverted) { const j = S.rows.findIndex(x => x.id === res.reverted.id); if (j > -1) S.rows[j] = res.reverted; }
       render();
       refreshAvailableUnits();
-      toast(res.revertedId ? `Unit taken back: ${id} → For Release · ${res.revertedId} → Awaiting Unit` : `${id} on hold`);
+      toast(res.revertedId ? `Unit taken back: ${id} → For Release · ${res.revertedId} → Awaiting Unit` : `${id} reserved for 48 hours`);
     })
     .catch(err => { Object.assign(r, backup); r.checking = false;
       const now = S.rows.find(x => x.id === id); if (now) now.checking = false;
@@ -3872,31 +3970,50 @@ function renderAvail() {
   const arBtn = $('archiveBtn'); if (arBtn) arBtn.hidden = !S.admin;
   const data = S.availableUnits;
   const list = (data && Array.isArray(data.items)) ? data.items : [];
-  const availHtml = list.length ? list.map(x => {
-    const k = norm(x.handset);
-    // Next customer must want the SAME handset AND the SAME color as this unit.
-    const next = S.rows.filter(r => r.status === 'Awaiting Unit' &&
-      norm(r.handset) === k && (!x.color || norm(r.color) === norm(x.color)))
-      .sort((a,b) => String(a.date).localeCompare(String(b.date)) || String(a.id).localeCompare(String(b.id)))[0];
-    const code = x.codes && x.codes.length ? 'Item ID: '+x.codes.join(', ') : (x.source || 'Available');
-    return `<li><span><span class="available-desc">${esc(x.handset)}</span>
-       <span class="available-sub">${esc(x.color || code)}${x.color ? ' · '+esc(code):''}${next ? ' · Oldest waiting: '+esc(next.id) : ''}</span></span>
-       <span style="display:flex;align-items:center;gap:8px"><span class="u">${formatCount(x.units)}</span></span></li>`;
-  }).join('') : '<li class="avail-empty">No available units</li>';
-  // In Stock = On-Hand Stock products that have units (each stock stays in its own list).
-  const onHand = (Array.isArray(S.onHand) ? S.onHand : []).filter(x => Number(x.qty) > 0)
+  // Old Available Units (spare handsets, Hold Expired) are moved into Inventory products.
+  const prods = ohList().slice().sort((a, b) => String(a.desc).localeCompare(String(b.desc)));
+  const guess = x => {
+    const want = norm(x.handset + ' ' + x.color).split(/\s+/).filter(Boolean);
+    let best = '', top = 0;
+    prods.forEach(pr => { const have = norm(pr.desc); const n = want.filter(w => have.includes(w)).length / want.length; if (n > top) { top = n; best = pr.id; } });
+    return top >= 0.75 ? best : '';
+  };
+  const oldHtml = list.map((x, i) => {
+    const g = guess(x);
+    return `<li class="old-unit"><span><span class="available-desc">${esc(x.handset)}</span>
+       <span class="available-sub">${esc(x.color || '')}${x.color ? ' · ' : ''}${esc(x.source || 'Available Units')}</span>
+       ${S.admin ? `<span class="old-move"><select id="mvp${i}" aria-label="Inventory product for ${esc(x.handset)}"><option value="">Move into product…</option>${prods.map(pr =>
+          `<option value="${esc(pr.id)}" ${pr.id === g ? 'selected' : ''}>${esc(pr.desc)} · ${esc(pr.matcode)}</option>`).join('')}</select>
+          <button type="button" class="btn btn-primary mini" onclick="moveToInventory(${i})">Move</button></span>` : ''}</span>
+       <span class="u">${formatCount(x.units)}</span></li>`;
+  }).join('');
+  const onHand = prods.filter(x => Number(x.qty) > 0)
     .sort((a, b) => Number(b.qty) - Number(a.qty) || String(a.desc).localeCompare(String(b.desc)));
   const availN = Math.max(0, Number(data && data.totalUnits) || list.reduce((t, x) => t + (Number(x.units) || 0), 0));
   const stockN = onHand.reduce((t, x) => t + Number(x.qty), 0);
-  const stockHtml = onHand.length ? onHand.map(x => `<li><span><span class="available-desc">${esc(x.desc)}</span>
-       <span class="available-sub">${esc(x.matcode)}${x.type ? ' · ' + esc(x.type) : ''} · In Stock</span></span>
-       <span class="u">${formatCount(Number(x.qty))}</span></li>`).join('') : '<li class="avail-empty">No units in stock</li>';
+  const stockHtml = onHand.length ? onHand.map(x => { const w = waitingFor(x.id).length; return `<li><span><span class="available-desc">${esc(x.desc)}</span>
+       <span class="available-sub">${esc(x.matcode)}${x.type ? ' · ' + esc(x.type) : ''}${w ? ` · <a href="#" onclick="openWaiting('${esc(x.id)}');return false">Waiting: ${w}</a>` : ''}</span></span>
+       <span class="u">${formatCount(Number(x.qty))}</span></li>`; }).join('') : '<li class="avail-empty">No units in stock</li>';
   $('avail').innerHTML =
-    `<li class="avail-group"><span>Available Units</span><b>${formatCount(availN)}</b></li>` + availHtml +
+    (list.length ? `<li class="avail-group old"><span>Old Available Units · move into Inventory</span><b>${formatCount(availN)}</b></li>` + oldHtml : '') +
     `<li class="avail-group"><span>In Stock</span><b>${formatCount(stockN)}</b></li>` + stockHtml;
   const tot = $('availTotal');
   if (tot) tot.innerHTML = `<span>Total</span><b>${formatCount(availN + stockN)}</b>
-    <small>Available Units ${formatCount(availN)} + In Stock ${formatCount(stockN)}</small>`;
+    <small>${list.length ? `In Stock ${formatCount(stockN)} + Old Available Units ${formatCount(availN)} (not moved yet)` : 'All units in Inventory (On-Hand Stock)'}</small>`;
+}
+// Admin: move one handset + color of the old Available Units into an Inventory product.
+function moveToInventory(i) {
+  const x = ((S.availableUnits && S.availableUnits.items) || [])[i]; if (!x) return;
+  const pid = ($('mvp' + i) || {}).value;
+  if (!pid) return toast('Choose the Inventory product for ' + x.handset + ' ' + (x.color || ''), true);
+  const pr = ohList().find(p => p.id === pid);
+  if (!confirm(`Move ${x.units} unit(s) of ${x.handset} ${x.color || ''} into\n${pr ? pr.desc + ' · ' + pr.matcode : 'this product'}?\n\nIts Qty goes up by ${x.units}.`)) return;
+  api('moveToInventory', { handset: x.handset, color: x.color, productId: pid }).then(res => {
+    if (res.availableUnits) S.availableUnits = res.availableUnits;
+    if (res.product) replaceOh(res.product); else render();
+    renderAvail(); renderKpis(); saveCache();
+    toast(`${res.moved} unit(s) moved into ${res.product ? res.product.desc : 'Inventory'}`);
+  }).catch(err => toast(err.message, true));
 }
 
 let availabilitySyncInFlight = false;
