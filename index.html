@@ -1439,6 +1439,12 @@ a.nav-item:hover{color:#274ebd}
 .available-units-list li.old-unit .old-move{display:flex;gap:6px;margin-top:6px;align-items:center}
 .available-units-list li.old-unit .old-move select{max-width:220px;font-size:12px;padding:5px 8px;border-radius:8px}
 .available-units-list li.avail-group.old{color:#d2960c}
+.rv-btns .rv-next{width:auto!important;padding:0 7px;background:#7c48c9!important;color:#fff;font-weight:800}
+.offer{position:fixed;z-index:130;right:18px;bottom:calc(18px + env(safe-area-inset-bottom,0px));max-width:min(560px,calc(100vw - 36px));display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--card,#fff);color:var(--ink);border:1px solid #2f6bff;border-radius:14px;padding:12px 14px;box-shadow:0 14px 40px rgba(0,0,0,.35);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.offer[hidden]{display:none}
+.offer .of-ic{width:26px;height:26px;border-radius:50%;background:#2fbf71;color:#fff;display:grid;place-items:center;font-weight:900;flex:none}
+.offer .of-txt{flex:1;min-width:200px;font-size:13px;line-height:1.4}
+.offer .of-txt b{display:block}
 .wq-list{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
 .wq{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(246,160,58,.55);background:rgba(246,160,58,.12);color:#f6a03a;border-radius:9px;padding:3px 6px 3px 4px;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap}
 .wq:hover,.wq:focus{background:rgba(246,160,58,.22);outline:none}
@@ -1466,6 +1472,8 @@ a.nav-item:hover{color:#274ebd}
 .ul-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}
 .ul-main{flex:1;min-width:220px;display:flex;flex-direction:column;gap:2px}
 .ul-main span{font-size:12px;color:var(--muted)}
+.ul-name{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;width:fit-content}
+.ul-name:hover{color:#2f6bff}
 .ul-row select{max-width:300px;font-size:12px;padding:6px 8px;border-radius:9px}
 .ul-sug{font-size:10.5px;font-weight:800;color:#2fbf71;border:1px solid rgba(47,191,113,.5);border-radius:99px;padding:1px 7px}
 .wt-chip{display:inline-flex;align-items:center;margin-top:6px;border:1px solid rgba(246,160,58,.55);background:rgba(246,160,58,.14);color:#f6a03a;border-radius:99px;padding:3px 10px;font:inherit;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap}
@@ -2255,6 +2263,7 @@ body.chat-open .chat-fab{display:none}
 <datalist id="dl_handset"></datalist>
 
 <div class="toast" id="toast"></div>
+<div class="offer" id="offer" hidden role="status" aria-live="polite"></div>
 
 <script>
 /* ================= CONFIG ================= */
@@ -2977,7 +2986,8 @@ function resvChip(r) {
   const btns = S.admin ? `<span class="rv-btns">
       <button type="button" title="${st === 'Pending' ? 'Start the 48-hour timer (takes 1 unit off Qty)' : 'Restart the 48 hours'}" onclick="resvDo('${esc(r.id)}','timer')">⏱</button>
       <button type="button" title="Sold: the customer took the unit" onclick="resvDo('${esc(r.id)}','sold')">✓</button>
-      <button type="button" title="Cancel${r.taken ? ': 1 unit goes back to Qty' : ''}" onclick="resvDo('${esc(r.id)}','cancel')">✕</button></span>` : '';
+      <button type="button" title="Cancel${r.taken ? ': 1 unit goes back to Qty' : ''}" onclick="resvDo('${esc(r.id)}','cancel')">✕</button>${r.po && st === 'Lapsed' ? `
+      <button type="button" class="rv-next" title="Not collected: give the unit to the next customer in line" onclick="passToNext('${esc(r.id)}')">Next ›</button>` : ''}</span>` : '';
   const rq = r.po ? S.rows.find(x => x.id === r.po) : null;
   const who = r.po ? `<b class="rv-po" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.po)}',this)">${esc(r.po)} · ${esc(rq ? custName(rq) : r.seller)}</b>` : `<b>${esc(r.seller)}</b>`;
   return `<span class="rv-chip ${cls}${r.pending ? ' pending' : ''}" title="${esc((r.resvDate ? 'Resv date ' + r.resvDate + ' · ' : '') + resvTimerText(r))}">${who}<span class="rv-meta"><span class="rv-date">${esc(r.resvDate || '')} · </span>⏱ ${esc(shortTimer(r))}</span>${btns}</span>`;
@@ -3139,6 +3149,7 @@ function flushOhQty(id) {
     row.qty = Math.max(0, (Number(row.qty) || 0) + q.delta);
     row.status = row.qty > 0 ? 'In Stock' : 'Out of Stock';
     replaceOh(row);
+    if (d > 0) offerFirstInLine(id);
   }).catch(err => {
     moves.forEach(dropStockMove);
     const x = ohList().find(r => r.id === id);
@@ -3893,6 +3904,39 @@ const reqsOf = pid => S.rows.filter(r => r.productId === pid && !r.spare && !['F
 const reqHit = (r, q) => norm([r.id, r.first, r.last, r.mobile, r.waitlist].join(' ')).includes(q) ||
   (digitsOnly(q).length >= 4 && digitsOnly(r.mobile).includes(digitsOnly(q)));
 
+/* ----- The 48-hour queue: a unit goes from one customer to the next ----- */
+// The next customer for a product, leaving out one request.
+const nextInLine = (pid, skipId) => waitingFor(pid).filter(r => r.id !== skipId)[0] || null;
+// Admin: the customer did not collect within 48 hours → the next customer gets the unit.
+function passToNext(resvId) {
+  const v = resvList().find(x => x.id === resvId); if (!v) return;
+  const n = nextInLine(v.productId, v.po);
+  const was = S.rows.find(x => x.id === v.po);
+  if (!confirm(`${v.po}${was ? ' (' + custName(was) + ')' : ''} did not collect within 48 hours.\n\n` +
+    (n ? `Give the unit to ${n.id} (${custName(n)}, seller ${n.seller})?\nThey get 48 hours. ${v.po} becomes Lapsed.`
+       : `Nobody else is waiting: the unit goes back to Qty and ${v.po} becomes Lapsed.`))) return;
+  api('passToNext', { id: resvId }).then(res => {
+    applyResvLists(res);
+    [res.lapsed, res.next].forEach(row => { if (!row) return; const i = S.rows.findIndex(x => x.id === row.id); if (i >= 0) S.rows[i] = row; });
+    render(); saveCache();
+    toast(res.next ? `${res.next.id} reserved for 48 hours · ${v.po} Lapsed`
+      : res.warning ? `${v.po} Lapsed · ${res.warning}` : `${v.po} Lapsed · the unit is back in stock`, !!res.warning);
+  }).catch(err => toast(err.message, true));
+}
+// After + : offer the unit to the first customer in line.
+function offerFirstInLine(pid) {
+  const p = ohList().find(x => x.id === pid);
+  const n = p && p.qty > 0 ? nextInLine(pid, '') : null;
+  if (!n || !S.admin || p.qty < (n.qty || 1)) return;
+  const t = $('offer');
+  t.innerHTML = `<span class="of-ic">✓</span><span class="of-txt"><b>${esc(p.desc)} · Qty ${formatCount(p.qty)}</b>
+      ${esc(n.id)} (${esc(custName(n))}, ${esc(n.seller)}) is first in line. Reserve now?</span>
+    <button type="button" class="btn btn-primary mini" onclick="hideOffer();reserveForPO('${esc(n.id)}')">Reserve ${esc(n.id)}</button>
+    <button type="button" class="btn btn-light mini" onclick="hideOffer()">Later</button>`;
+  t.hidden = false;
+  clearTimeout(S.offerTimer); S.offerTimer = setTimeout(hideOffer, 15000);
+}
+function hideOffer() { const t = $('offer'); if (t) t.hidden = true; clearTimeout(S.offerTimer); }
 /* ----- Customer card: opens from a PO chip in Inventory ----- */
 function openReqCard(id, el) {
   S.cardId = id; S.cardAnchor = el || null;
@@ -3930,13 +3974,14 @@ function drawReqCard() {
       ${row('Seller', esc(r.seller))}
       ${row('Request date', esc(r.date))}
       ${row('Category', esc(catLabel(r.requestCategory) + (r.type ? ' · ' + r.type : '')))}
-      ${row('Product', p ? esc(p.desc + ' · ' + p.matcode) : 'Not linked')}
+      ${row('Product', p ? esc(p.desc + ' · ' + p.matcode) : 'Not linked yet')}
       ${pos > -1 ? row('Queue', `${pos + 1}${['st', 'nd', 'rd'][pos] || 'th'} of ${w.length}`) : ''}
       ${resv ? row('Reserved', esc(resvState(resv) === 'Lapsed' ? 'Lapsed · unit still reserved' : '⏱ ' + resvTimerText(resv))) : ''}
       ${row('Remarks', esc(r.remarks))}
     </div>
     <div class="rc-actions">
       ${S.admin && pos > -1 ? `<button type="button" class="btn btn-primary mini" ${p && p.qty >= (r.qty || 1) ? '' : 'disabled title="Out of Stock"'} onclick="reserveForPO('${esc(r.id)}')">Reserve for ${esc(r.id)}</button>` : ''}
+      ${S.admin && resv && resvState(resv) === 'Lapsed' ? `<button type="button" class="btn btn-primary mini" onclick="closeReqCard();passToNext('${esc(resv.id)}')">Give to next in line ›</button>` : ''}
       ${S.admin ? `<button type="button" class="btn btn-light mini" onclick="closeReqCard();openForm('${esc(r.id)}')">✎ Edit</button>` : ''}
       <button type="button" class="btn btn-light mini" onclick="openInRequests('${esc(r.id)}')">Open in Requests</button>
     </div>`;
@@ -3948,12 +3993,12 @@ function openInRequests(id) {
 }
 document.addEventListener('click', e => {
   const c = $('reqCard');
-  if (!c || c.hidden || c.contains(e.target) || (e.target.closest && e.target.closest('.wq,.rv-po'))) return;
+  if (!c || c.hidden || c.contains(e.target) || (e.target.closest && e.target.closest('.wq,.rv-po,.ul-name'))) return;
   closeReqCard();
 }, true);
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && $('reqCard') && !$('reqCard').hidden) closeReqCard();
-  if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.matches && e.target.matches('.wq,.rv-po')) { e.preventDefault(); e.target.click(); }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.matches && e.target.matches('.wq,.rv-po,.ul-name')) { e.preventDefault(); e.target.click(); }
 });
 window.addEventListener('resize', () => { if (S.cardId) placeReqCard(); });
 window.addEventListener('scroll', () => { if (S.cardId && window.innerWidth > 700) placeReqCard(); }, true);
@@ -3997,7 +4042,9 @@ function renderUnlinked() {
       <span>Requests without a product (older requests, or models not in Inventory). Link them to show them under their product.</span>
       ${sugg.length ? `<button type="button" class="btn btn-primary mini" onclick="linkSuggested()">Link all suggested (${sugg.length})</button>` : ''}</div>
     <div class="ul-list">${shown.map(r => { const g = suggestProduct(r); return `<div class="ul-row">
-      <span class="ul-main"><b>${esc(r.id)} · ${esc(custName(r))}</b><span>${esc(r.handset)} · ${esc(r.color)} · ${esc(r.seller)} · ${esc(statusLabel(r.status))}</span></span>
+      <span class="ul-main"><b class="ul-name" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.id)}',this)">${esc(r.id)} · ${esc(custName(r))}</b>
+        <span>📞 ${esc(r.mobile || '—')} · WL # ${esc(wlText(r.waitlist))} · ${esc(r.date)}</span>
+        <span>${esc(r.handset)} · ${esc(r.color)} · ${esc(r.seller)} · ${esc(statusLabel(r.status))}</span></span>
       ${g ? '<span class="ul-sug" title="Suggested from the handset and color">Suggested</span>' : ''}
       <select id="ul_${esc(r.id)}" aria-label="Product for ${esc(r.id)}">${opts(g)}</select>
       <button type="button" class="btn btn-light mini" onclick="linkOne('${esc(r.id)}')">Link</button></div>`; }).join('')}</div>
