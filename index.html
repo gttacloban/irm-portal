@@ -1459,6 +1459,11 @@ a.nav-item:hover{color:#274ebd}
 .req-card[hidden]{display:none}
 .rc-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .rc-head b{font-size:16px}
+.rc-head{flex-wrap:wrap}
+.rc-status select.st{max-width:160px}
+.rc-tools{display:inline-flex;gap:2px}
+.rc-tools .icon{width:30px;height:30px}
+.rc-hold{margin:-4px 0 10px}
 .rc-x{margin-left:auto;border:1px solid var(--line);background:transparent;color:inherit;border-radius:9px;width:30px;height:30px;cursor:pointer}
 .rc-grid{display:grid;grid-template-columns:105px 1fr;gap:6px 10px;font-size:13px}
 .rc-grid span{color:var(--muted)}
@@ -3965,8 +3970,14 @@ function drawReqCard() {
   const resv = resvList().find(v => v.po === r.id && isOpenResv(v));
   const tel = String(r.mobile || '').replace(/[^\d+]/g, '');
   const row = (k, v) => v ? `<span>${k}</span><b>${v}</b>` : '';
-  $('reqCard').innerHTML = `<div class="rc-head"><b>${esc(r.id)}</b><span class="st" style="background:var(--${sk}-bg);color:var(--${sk}-ink)">${esc(statusLabel(r.status))}</span>
+  // Admin: the same status list, ⏱ and 🗑 as in the request list.
+  const canHold = !['Fulfilled', 'Cancelled'].includes(r.status);
+  $('reqCard').innerHTML = `<div class="rc-head"><b>${esc(r.id)}</b>
+      <span class="rc-status">${S.admin ? statusCell(r) : `<span class="st" style="background:var(--${sk}-bg);color:var(--${sk}-ink)">${esc(statusLabel(r.status))}</span>`}</span>
+      ${S.admin ? `<span class="rc-tools">${canHold && !r.checking ? `<button type="button" class="icon" title="Reserve / 48 more hours" onclick="holdRequest('${esc(r.id)}')">⏱</button>` : ''}
+        <button type="button" class="icon" title="Delete request" onclick="closeReqCard();removeRow('${esc(r.id)}')">🗑</button></span>` : ''}
       <button type="button" class="rc-x" aria-label="Close" onclick="closeReqCard()">✕</button></div>
+    ${holdChip(r) ? `<div class="rc-hold">${holdChip(r)}</div>` : ''}
     <div class="rc-grid">
       ${row('Customer', esc([r.first, r.last].join(' ')))}
       ${row('Mobile', tel ? `<a href="tel:${esc(tel)}">${esc(r.mobile)} 📞</a>` : esc(r.mobile))}
