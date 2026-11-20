@@ -4311,12 +4311,12 @@ function renderAvail() {
   const stockHtml = onHand.length ? onHand.map(x => { const w = waitingFor(x.id).length; return `<li><span><span class="available-desc">${esc(x.desc)}</span>
        <span class="available-sub">${esc(x.matcode)}${x.type ? ' · ' + esc(x.type) : ''}${w ? ` · <a href="#" onclick="openWaiting('${esc(x.id)}');return false">Waiting: ${w}</a>` : ''}</span></span>
        <span class="u">${formatCount(Number(x.qty))}</span></li>`; }).join('') : '<li class="avail-empty">No units in stock</li>';
-  $('avail').innerHTML =
-    (list.length ? `<li class="avail-group old"><span>Old Available Units · move into Inventory</span><b>${formatCount(availN)}</b></li>` + oldHtml : '') +
-    `<li class="avail-group"><span>In Stock</span><b>${formatCount(stockN)}</b></li>` + stockHtml;
+  // Old Available Units (Hold Expired / spare rows from before the merge) are not shown
+  // or moved any more: the panel shows the Inventory stock only.
+  void oldHtml; void availN;
+  $('avail').innerHTML = `<li class="avail-group"><span>In Stock</span><b>${formatCount(stockN)}</b></li>` + stockHtml;
   const tot = $('availTotal');
-  if (tot) tot.innerHTML = `<span>Total</span><b>${formatCount(availN + stockN)}</b>
-    <small>${list.length ? `In Stock ${formatCount(stockN)} + Old Available Units ${formatCount(availN)} (not moved yet)` : 'All units in Inventory (On-Hand Stock)'}</small>`;
+  if (tot) tot.innerHTML = `<span>Total</span><b>${formatCount(stockN)}</b><small>All units in Inventory (On-Hand Stock)</small>`;
 }
 // Admin: move one handset + color of the old Available Units into an Inventory product.
 function moveToInventory(i) {
