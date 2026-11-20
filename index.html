@@ -4100,8 +4100,12 @@ function reqListRow(r) {
       <span>${esc(r.handset)} · ${esc(r.color)} · ${esc(r.date)}</span></span>
       <span class="rq-act">${adminButtons(r)}</span></div>`;
   const p = productOf(r);
-  const g = !p && S.admin ? suggestProduct(r) : '';
-  const product = S.admin
+  // Finished requests (Fulfilled / Cancelled) are not linked: it would change nothing.
+  const closed = ['Fulfilled', 'Cancelled'].includes(r.status);
+  const g = !p && S.admin && !closed ? suggestProduct(r) : '';
+  const product = closed
+    ? (p ? `<span class="rq-prod">📦 ${esc(p.desc)} · ${esc(p.matcode)}</span>` : '')
+    : S.admin
     ? `${g ? '<span class="ul-sug" title="Suggested from the handset and color">Suggested</span>' : ''}
        <select id="rl_${esc(r.id)}" class="${p ? 'linked' : ''}" aria-label="Inventory product for ${esc(r.id)}">${productOptions(p ? p.id : g)}</select>
        <button type="button" class="btn btn-light mini" onclick="linkFrom('${esc(r.id)}','rl_${esc(r.id)}')">${p ? 'Save' : 'Link'}</button>`
