@@ -3044,9 +3044,14 @@ function resvChip(r) {
   const who = r.po ? `<b class="rv-po" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.po)}',this)">${esc(r.po)} · ${esc(rq ? custName(rq) : r.seller)}</b>` : `<b>${esc(r.seller)}</b>`;
   return `<span class="rv-chip ${cls}${r.pending ? ' pending' : ''}" title="${esc((r.resvDate ? 'Resv date ' + r.resvDate + ' · ' : '') + resvTimerText(r))}">${who}<span class="rv-meta"><span class="rv-date">${esc(r.resvDate || '')} · </span>⏱ ${esc(shortTimer(r))}</span>${btns}</span>`;
 }
+let ohListKey = '';
 function renderOnHand() {
   if (!$('ohBody')) return;
   const all = ohList();
+  // A product was added, renamed or deleted: refresh the request list too, so its
+  // product pickers and "Suggested" links use the new Inventory at once.
+  const k = all.filter(x => !x.pending).map(x => x.id + ':' + x.desc + ':' + x.matcode).join('|');
+  if (k !== ohListKey) { const first = !ohListKey; ohListKey = k; if (!first && typeof renderTable === 'function') setTimeout(renderTable, 0); }
   const keep = (el, html, v) => { el.innerHTML = html; el.value = v; };
   keep($('oh_type'), '<option value="">All Type</option>' + stockTypes().map(t => `<option>${esc(t)}</option>`).join(''), S.oh.type);
   const sellers = stockSellers();
