@@ -184,7 +184,11 @@ label .req{color:var(--ca)}
   background:transparent;color:var(--ca);font-size:23px;font-weight:700;line-height:1;cursor:pointer}
 .color-remove:hover,.color-remove:focus-visible{background:var(--ca-bg);outline:none}
 .color-suggestions-empty{padding:12px;color:var(--muted);font-size:13px}
-.prod-suggestions{max-height:320px}
+.prod-suggestions{max-height:340px}
+#f_prodSearch{cursor:pointer;caret-color:transparent}
+.prod-search{position:sticky;top:0;z-index:2;padding:8px;background:inherit;border-bottom:1px solid var(--line)}
+.prod-search input{width:100%;padding:9px 11px;font-size:14px}
+.prod-suggestions .prod-group{top:55px}
 .prod-group{position:sticky;top:0;z-index:1;padding:7px 12px;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:inherit;border-bottom:1px solid var(--line)}
 .prod-suggestions .color-choice{display:flex;flex-direction:column;gap:2px}
 .prod-suggestions .color-choice.on{background:rgba(47,168,240,.16);box-shadow:inset 3px 0 0 #2fa8f0}
@@ -2103,12 +2107,15 @@ body.chat-open .chat-fab{display:none}
         <select id="f_product" hidden tabindex="-1" aria-hidden="true" onchange="productPicked()"></select>
         <div class="color-picker" id="prodPicker">
           <div class="color-input-row">
-            <input id="f_prodSearch" autocomplete="off" role="combobox" placeholder="Choose the product… (type to search)"
+            <input id="f_prodSearch" readonly autocomplete="off" role="combobox" placeholder="Choose the product…"
               aria-autocomplete="list" aria-controls="prodSuggestions" aria-expanded="false">
             <button type="button" class="color-arrow" id="prodArrow" onclick="toggleProdDropdown()"
               aria-label="Show products" aria-controls="prodSuggestions" aria-expanded="false">▾</button>
           </div>
-          <div class="color-suggestions prod-suggestions" id="prodSuggestions" aria-label="Products" hidden></div>
+          <div class="color-suggestions prod-suggestions" id="prodSuggestions" aria-label="Products" hidden>
+            <div class="prod-search"><input id="prodQ" type="search" autocomplete="off" placeholder="🔍 Search name or matcode" aria-label="Search products"></div>
+            <div id="prodItems"></div>
+          </div>
         </div>
         <div class="hint">Choose the product from Inventory (On-Hand Stock). Choose <b>Not in Inventory</b> only for a model that is not in the list yet.</div></div>
       <div><label>Handset Description <span class="req">*</span></label><input id="f_handset" list="dl_handset" placeholder="e.g. iPhone 17 Pro Max 256GB" required></div>
@@ -3953,7 +3960,7 @@ function prodLabel(v) {
 }
 function setProdLabel() { $('f_prodSearch').value = prodLabel($('f_product').value); }
 function renderProdDropdown() {
-  const q = prodShowAll ? '' : norm($('f_prodSearch').value);
+  const q = norm($('prodQ').value);
   const list = ohList().slice().sort((a, b) => String(a.type).localeCompare(String(b.type)) || String(a.desc).localeCompare(String(b.desc)))
     .filter(x => !q || norm([x.desc, x.matcode, x.type].join(' ')).includes(q));
   prodChoices = [NOT_IN_INV].concat(list.map(x => x.id));
@@ -3967,10 +3974,11 @@ function renderProdDropdown() {
       <span class="prod-name">${esc(x.desc)}</span><span class="prod-meta">${esc(x.matcode)} · <b class="${x.qty > 0 ? 'in' : 'out'}">${x.qty > 0 ? 'Qty ' + formatCount(x.qty) : 'Out of stock'}</b></span></button></div>`;
   });
   if (!list.length) html += '<div class="color-suggestions-empty">No product matches. Choose Not in Inventory for a new model.</div>';
-  $('prodSuggestions').innerHTML = html;
+  $('prodItems').innerHTML = html;
 }
 function showProdDropdown(all) {
-  prodShowAll = !!all; renderProdDropdown();
+  if (all) $('prodQ').value = '';
+  renderProdDropdown();
   $('prodSuggestions').hidden = false;
   $('f_prodSearch').setAttribute('aria-expanded', 'true'); $('prodArrow').setAttribute('aria-expanded', 'true');
   const on = $('prodSuggestions').querySelector('.color-choice.on');
@@ -3982,20 +3990,29 @@ function closeProdDropdown() {
   $('f_prodSearch').setAttribute('aria-expanded', 'false'); $('prodArrow').setAttribute('aria-expanded', 'false');
   setProdLabel();
 }
-function toggleProdDropdown() { if ($('prodSuggestions').hidden) { showProdDropdown(true); $('f_prodSearch').select(); } else closeProdDropdown(); }
-$('f_prodSearch').addEventListener('focus', () => { if ($('prodSuggestions').hidden) { showProdDropdown(true); $('f_prodSearch').select(); } });
-$('f_prodSearch').addEventListener('input', () => showProdDropdown(false));
+// The field is read-only, so a tap opens the list without the phone keyboard.
+// The keyboard opens only when the search box inside the list is tapped.
+function toggleProdDropdown() { if ($('prodSuggestions').hidden) showProdDropdown(true); else closeProdDropdown(); }
+$('f_prodSearch').addEventListener('click', toggleProdDropdown);
+$('f_prodSearch').addEventListener('keydown', e => {
+  // Desktop: typing on the field starts a search.
+  if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    e.preventDefault(); if ($('prodSuggestions').hidden) showProdDropdown(true);
+    $('prodQ').value += e.key; $('prodQ').focus(); renderProdDropdown();
+  } else if (e.key === 'Enter' && $('prodSuggestions').hidden) { e.preventDefault(); showProdDropdown(true); }
+});
+$('prodQ').addEventListener('input', renderProdDropdown);
 $('prodPicker').addEventListener('keydown', e => {
   if (e.key === 'Escape' && !$('prodSuggestions').hidden) { e.preventDefault(); e.stopPropagation(); closeProdDropdown(); return; }
   const opts = [...$('prodSuggestions').querySelectorAll('.color-choice')];
-  if (e.key === 'Enter' && e.target.id === 'f_prodSearch') { e.preventDefault(); if (opts[1] && !prodShowAll) opts[1].click(); return; }
-  if (e.key === 'ArrowDown' && e.target.id === 'f_prodSearch') { e.preventDefault(); showProdDropdown(prodShowAll); const f = $('prodSuggestions').querySelector('.color-choice'); if (f) f.focus(); }
+  if (e.key === 'Enter' && e.target.id === 'prodQ') { e.preventDefault(); if (opts[1] && $('prodQ').value.trim()) opts[1].click(); return; }
+  if (e.key === 'ArrowDown' && (e.target.id === 'f_prodSearch' || e.target.id === 'prodQ')) { e.preventDefault(); showProdDropdown(prodShowAll); const f = $('prodSuggestions').querySelector('.color-choice'); if (f) f.focus(); }
   else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && e.target.matches('.color-choice')) {
     e.preventDefault(); const i = opts.indexOf(e.target);
     (opts[(i + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length] || e.target).focus();
   }
 });
-$('prodSuggestions').addEventListener('click', e => {
+$('prodItems').addEventListener('click', e => {
   const b = e.target.closest('[data-prod]');
   if (!b) return;
   const v = prodChoices[Number(b.dataset.prod)];
