@@ -4171,16 +4171,23 @@ function suggestProduct(r) {
   const want = linkTokens(r.handset + ' ' + r.color);
   if (!want.length) return '';
   const nums = want.filter(x => /\d/.test(x)), words = want.filter(x => !/\d/.test(x));
-  let best = '', top = 0, second = 0;
+  const key = want.slice().sort().join(' ');
+  const scored = [];
   ohList().forEach(p => {
+    if (p.pending) return;
     const have = linkTokens(p.desc);
     if (!nums.every(n => have.includes(n))) return;                     // 17 ≠ 18, 256gb ≠ 512gb
     if (have.filter(h => /\d/.test(h)).some(h => !nums.includes(h))) return;   // product has extra numbers
     const hit = words.filter(w => have.some(h => h === w || (w.length >= 3 && h.length >= 3 && (h.startsWith(w.slice(0, 3)) || w.startsWith(h.slice(0, 3)))))).length;
     const score = words.length ? hit / words.length : 1;
-    if (score > top) { second = top; top = score; best = p.id; } else if (score > second) second = score;
+    if (score >= 0.75) scored.push({ p: p, score: score, exact: have.slice().sort().join(' ') === key });
   });
-  return top >= 0.75 && top > second ? best : '';
+  if (!scored.length) return '';
+  // Best match first. The same name twice (e.g. added twice): exact name, then the one in stock, then the most Qty.
+  scored.sort((a, b) => b.score - a.score || b.exact - a.exact || (b.p.qty > 0) - (a.p.qty > 0) || b.p.qty - a.p.qty);
+  const [x, y] = scored;
+  if (y && y.score === x.score && y.exact === x.exact && linkTokens(y.p.desc).sort().join(' ') !== linkTokens(x.p.desc).sort().join(' ')) return '';   // two different products fit equally
+  return x.p.id;
 }
 function unlinkedRequests() {
   return S.rows.filter(r => !r.spare && !r.pending && !r.productId && !['Fulfilled', 'Cancelled'].includes(r.status))
