@@ -184,6 +184,14 @@ label .req{color:var(--ca)}
   background:transparent;color:var(--ca);font-size:23px;font-weight:700;line-height:1;cursor:pointer}
 .color-remove:hover,.color-remove:focus-visible{background:var(--ca-bg);outline:none}
 .color-suggestions-empty{padding:12px;color:var(--muted);font-size:13px}
+.prod-suggestions{max-height:320px}
+.prod-group{position:sticky;top:0;z-index:1;padding:7px 12px;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:inherit;border-bottom:1px solid var(--line)}
+.prod-suggestions .color-choice{display:flex;flex-direction:column;gap:2px}
+.prod-suggestions .color-choice.on{background:rgba(47,168,240,.16);box-shadow:inset 3px 0 0 #2fa8f0}
+.prod-name{font-weight:600}
+.prod-meta{font-size:12px;color:var(--muted)}
+.prod-meta .in{color:#4cc45a}.prod-meta .out{color:#f0533e}
+.prod-new{font-weight:700}
 
 /* Sign-in / denied screens */
 .screen{position:fixed;inset:0;background:var(--brand);display:none;align-items:center;justify-content:center;
@@ -2092,7 +2100,16 @@ body.chat-open .chat-fab{display:none}
       <div><label>Mobile # <span class="req">*</span></label><input id="f_mobile" inputmode="tel" placeholder="09XXXXXXXXX" required></div>
       <div><label>Request Date <span class="req">*</span></label><input id="f_date" type="date" required></div>
       <div class="full"><label for="f_product">Inventory Product <span class="req">*</span></label>
-        <select id="f_product" required onchange="productPicked()"></select>
+        <select id="f_product" hidden tabindex="-1" aria-hidden="true" onchange="productPicked()"></select>
+        <div class="color-picker" id="prodPicker">
+          <div class="color-input-row">
+            <input id="f_prodSearch" autocomplete="off" role="combobox" placeholder="Choose the product… (type to search)"
+              aria-autocomplete="list" aria-controls="prodSuggestions" aria-expanded="false">
+            <button type="button" class="color-arrow" id="prodArrow" onclick="toggleProdDropdown()"
+              aria-label="Show products" aria-controls="prodSuggestions" aria-expanded="false">▾</button>
+          </div>
+          <div class="color-suggestions prod-suggestions" id="prodSuggestions" aria-label="Products" hidden></div>
+        </div>
         <div class="hint">Choose the product from Inventory (On-Hand Stock). Choose <b>Not in Inventory</b> only for a model that is not in the list yet.</div></div>
       <div><label>Handset Description <span class="req">*</span></label><input id="f_handset" list="dl_handset" placeholder="e.g. iPhone 17 Pro Max 256GB" required></div>
       <div>
@@ -3924,7 +3941,70 @@ function fillProductPicker(value) {
     Object.keys(groups).map(g => `<optgroup label="${esc(g)}">` + groups[g].map(x =>
       `<option value="${esc(x.id)}">${esc(x.desc)} · ${esc(x.matcode)} · Qty ${formatCount(x.qty)}</option>`).join('') + '</optgroup>').join('');
   $('f_product').value = value || '';
+  setProdLabel();
 }
+/* ----- Product dropdown (same look as the color list) ----- */
+let prodShowAll = false, prodChoices = [];
+function prodLabel(v) {
+  if (!v) return '';
+  if (v === NOT_IN_INV) return 'Not in Inventory (new model)';
+  const x = ohList().find(p => p.id === v);
+  return x ? `${x.desc} · ${x.matcode}` : '(product deleted)';
+}
+function setProdLabel() { $('f_prodSearch').value = prodLabel($('f_product').value); }
+function renderProdDropdown() {
+  const q = prodShowAll ? '' : norm($('f_prodSearch').value);
+  const list = ohList().slice().sort((a, b) => String(a.type).localeCompare(String(b.type)) || String(a.desc).localeCompare(String(b.desc)))
+    .filter(x => !q || norm([x.desc, x.matcode, x.type].join(' ')).includes(q));
+  prodChoices = [NOT_IN_INV].concat(list.map(x => x.id));
+  const cur = $('f_product').value;
+  let html = `<div class="color-choice-row"><button type="button" class="color-choice prod-new${cur === NOT_IN_INV ? ' on' : ''}" data-prod="0">➕ Not in Inventory (new model)</button></div>`;
+  let g = null;
+  list.forEach((x, i) => {
+    const t = x.type || 'Other';
+    if (t !== g) { g = t; html += `<div class="prod-group">${esc(t)}</div>`; }
+    html += `<div class="color-choice-row"><button type="button" class="color-choice${cur === x.id ? ' on' : ''}" data-prod="${i + 1}">
+      <span class="prod-name">${esc(x.desc)}</span><span class="prod-meta">${esc(x.matcode)} · <b class="${x.qty > 0 ? 'in' : 'out'}">${x.qty > 0 ? 'Qty ' + formatCount(x.qty) : 'Out of stock'}</b></span></button></div>`;
+  });
+  if (!list.length) html += '<div class="color-suggestions-empty">No product matches. Choose Not in Inventory for a new model.</div>';
+  $('prodSuggestions').innerHTML = html;
+}
+function showProdDropdown(all) {
+  prodShowAll = !!all; renderProdDropdown();
+  $('prodSuggestions').hidden = false;
+  $('f_prodSearch').setAttribute('aria-expanded', 'true'); $('prodArrow').setAttribute('aria-expanded', 'true');
+  const on = $('prodSuggestions').querySelector('.color-choice.on');
+  if (on && all) on.scrollIntoView({ block: 'nearest' });
+}
+function closeProdDropdown() {
+  if ($('prodSuggestions').hidden) return;
+  $('prodSuggestions').hidden = true;
+  $('f_prodSearch').setAttribute('aria-expanded', 'false'); $('prodArrow').setAttribute('aria-expanded', 'false');
+  setProdLabel();
+}
+function toggleProdDropdown() { if ($('prodSuggestions').hidden) { showProdDropdown(true); $('f_prodSearch').select(); } else closeProdDropdown(); }
+$('f_prodSearch').addEventListener('focus', () => { if ($('prodSuggestions').hidden) { showProdDropdown(true); $('f_prodSearch').select(); } });
+$('f_prodSearch').addEventListener('input', () => showProdDropdown(false));
+$('prodPicker').addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('prodSuggestions').hidden) { e.preventDefault(); e.stopPropagation(); closeProdDropdown(); return; }
+  const opts = [...$('prodSuggestions').querySelectorAll('.color-choice')];
+  if (e.key === 'Enter' && e.target.id === 'f_prodSearch') { e.preventDefault(); if (opts[1] && !prodShowAll) opts[1].click(); return; }
+  if (e.key === 'ArrowDown' && e.target.id === 'f_prodSearch') { e.preventDefault(); showProdDropdown(prodShowAll); const f = $('prodSuggestions').querySelector('.color-choice'); if (f) f.focus(); }
+  else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && e.target.matches('.color-choice')) {
+    e.preventDefault(); const i = opts.indexOf(e.target);
+    (opts[(i + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length] || e.target).focus();
+  }
+});
+$('prodSuggestions').addEventListener('click', e => {
+  const b = e.target.closest('[data-prod]');
+  if (!b) return;
+  const v = prodChoices[Number(b.dataset.prod)];
+  if (!v) return;
+  $('f_product').value = v;
+  productPicked();
+  closeProdDropdown();
+});
+document.addEventListener('pointerdown', e => { if (!$('prodPicker').contains(e.target)) closeProdDropdown(); });
 // Choosing a product fills the Handset Description when it is empty.
 function productPicked() {
   const p = ohList().find(x => x.id === $('f_product').value);
