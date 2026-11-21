@@ -3093,7 +3093,6 @@ function renderOnHand() {
     ? `<span class="oh-qty"><button type="button" class="oh-step" title="Minus 1 (sold)" onclick="stockQty('${esc(x.id)}',-1)" ${x.qty ? '' : 'disabled'}>−</button><b>${x.qty}</b><button type="button" class="oh-step" title="Add 1 (received)" onclick="stockQty('${esc(x.id)}',1)">+</button></span>`
     : `<b>${x.qty}</b>`;
   const actions = x => S.admin ? `<span class="oh-actions">
-      <button type="button" class="oh-reserve" title="Reserve a unit for a seller" onclick="openResvForm('${esc(x.id)}')">Reserve</button>
       <button class="icon" title="Edit" onclick="openStockForm('${esc(x.id)}')">✎</button>
       <button class="icon" title="Delete" onclick="stockDelete('${esc(x.id)}')">🗑</button></span>` : '';
   const st = x => `<span class="oh-st ${x.qty ? 'in' : 'out'}">${x.status}</span>`;
