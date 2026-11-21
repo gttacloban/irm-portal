@@ -196,6 +196,7 @@ label .req{color:var(--ca)}
 .prod-meta{font-size:12px;color:var(--muted)}
 .prod-meta .in{color:#4cc45a}.prod-meta .out{color:#f0533e}
 .prod-new{font-weight:700}
+.rq-unlink{color:#f0533e}
 
 /* Sign-in / denied screens */
 .screen{position:fixed;inset:0;background:var(--brand);display:none;align-items:center;justify-content:center;
@@ -4239,7 +4240,8 @@ function reqListRow(r) {
     : S.admin
     ? `${g ? '<span class="ul-sug" title="Suggested from the handset and color">Suggested</span>' : ''}
        <select id="rl_${esc(r.id)}" class="${p ? 'linked' : ''}" aria-label="Inventory product for ${esc(r.id)}">${productOptions(p ? p.id : g)}</select>
-       <button type="button" class="btn btn-light mini" onclick="linkFrom('${esc(r.id)}','rl_${esc(r.id)}')">${p ? 'Save' : 'Link'}</button>`
+       <button type="button" class="btn btn-light mini" onclick="linkFrom('${esc(r.id)}','rl_${esc(r.id)}')">${p ? 'Save' : 'Link'}</button>
+       ${p ? `<button type="button" class="btn btn-light mini rq-unlink" title="Remove the link to ${esc(p.desc)}" onclick="unlinkReq('${esc(r.id)}')">Unlink</button>` : ''}`
     : `<span class="rq-prod">${p ? '📦 ' + esc(p.desc) + ' · ' + esc(p.matcode) : 'Not linked to Inventory'}</span>`;
   return `<div class="ul-row rq-row${r.pending ? ' pending' : ''}">
     <span class="ul-main"><b class="ul-name" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.id)}',this)">${esc(r.pending ? 'Saving…' : r.id)} · ${esc(custName(r))}</b>
@@ -4256,6 +4258,23 @@ function linkFrom(id, selId) {
   const r = S.rows.find(x => x.id === id);
   if (r && r.productId === pid) return toast(id + ' is already linked to this product');
   sendLinks([{ id: id, productId: pid }]);
+}
+// Unlink: the request leaves the product's waiting queue (shown at once, undone if the server refuses).
+function unlinkReq(id) {
+  const r = S.rows.find(x => x.id === id);
+  if (!r || !r.productId) return;
+  if (resvList().some(v => v.po === id && isOpenResv(v)))
+    return toast(id + ' has a reservation. Change its status to Awaiting Unit (or Cancelled) first, then Unlink.', true);
+  const before = r.productId;
+  r.productId = ''; render();
+  api('unlinkProduct', { id: id }).then(res => {
+    const i = S.rows.findIndex(x => x.id === id);
+    if (res.row && i >= 0) S.rows[i] = res.row;
+    render(); saveCache(); toast(id + ' unlinked from Inventory');
+  }).catch(err => {
+    const x = S.rows.find(y => y.id === id); if (x) x.productId = before;
+    render(); toast(err.message, true);
+  });
 }
 function sendLinks(links) {
   if (!links.length) return;
