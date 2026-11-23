@@ -3369,7 +3369,15 @@ function resvDo(id, what) {
   else if (what === 'sold') { if (!r.taken && p) { p.qty--; r.taken = true; } r.status = 'Sold'; r.closedAt = Date.now(); }
   else { if (r.taken && p) p.qty++; r.status = 'Cancelled'; r.closedAt = Date.now(); }
   if (p) p.status = p.qty > 0 ? 'In Stock' : 'Out of Stock';
-  renderOnHand(); renderKpis();
+  // The customer's request moves at once too (cancel → back to Waiting, sold → Fulfilled).
+  const rq = r.po ? S.rows.find(x => x.id === r.po) : null;
+  const rqBefore = rq ? { status: rq.status, holdUntil: rq.holdUntil } : null;
+  if (rq && !resvList().some(v => v.id !== r.id && v.po === rq.id && isOpenResv(v))) {
+    if (what === 'cancel') { rq.status = 'Awaiting Unit'; rq.holdUntil = ''; }
+    else if (what === 'sold') { rq.status = 'Fulfilled'; rq.holdUntil = ''; }
+    else { rq.status = 'Reserved'; rq.holdUntil = r.holdUntil; }
+  }
+  if (rq) render(); else { renderOnHand(); renderKpis(); }
   const action = { timer: 'resvTimer', sold: 'resvSold', cancel: 'resvCancel' }[what];
   api(action, { id: id }).then(res => {
     S.reservations = resvList().map(x => x.id === id ? res.reservation : x);
@@ -3381,7 +3389,8 @@ function resvDo(id, what) {
     if (mv) dropStockMove(mv);
     S.reservations = resvList().map(x => x.id === id ? before : x);
     if (pBefore) S.onHand = ohList().map(x => x.id === pBefore.id ? pBefore : x);
-    renderOnHand(); renderKpis(); toast(err.message, true);
+    if (rq) Object.assign(rq, rqBefore);
+    render(); toast(err.message, true);
   });
 }
 function openResvHistory() {
@@ -4417,7 +4426,39 @@ function drawWaiting() {
     </li>`).join('') : '<li class="wt-empty">Nobody is waiting for this product.</li>';
 }
 // Admin: reserve the product for a request (same as choosing Reserved in the request list).
-function reserveForPO(id) { changeStatus(id, 'Reserved'); }
+// Reserve for a customer: shown at once (unit off Qty, chip in Reserved, request → Reserved),
+// then the server confirms. If the server refuses, everything goes back as it was.
+function reserveForPO(id) {
+  if (!S.admin) return;
+  const r = S.rows.find(x => x.id === id);
+  if (!r || r.pending || r.checking) return;
+  const p = ohList().find(x => x.id === r.productId);
+  if (!p) return changeStatus(id, 'Reserved');           // not linked: the server finds the product
+  const need = Math.max(1, Number(r.qty) || 1);
+  if ((Number(p.qty) || 0) < need) return toast(`Out of Stock: ${p.desc} has ${p.qty} unit(s), ${id} needs ${need}.`, true);
+  const before = { status: r.status, holdUntil: r.holdUntil }, pBefore = Object.assign({}, p), resvBefore = resvList().slice();
+  const until = Date.now() + 48 * 3600000, today = new Date().toISOString().slice(0, 10);
+  const tmp = [];
+  for (let n = 0; n < need; n++) tmp.push({ id: 'tmp-' + Date.now() + '-' + n, productId: p.id, matcode: p.matcode, desc: p.desc,
+    seller: r.seller, resvDate: today, holdUntil: until, status: 'Active', taken: true, po: id, by: S.user && S.user.name, pending: true });
+  S.reservations = resvList().concat(tmp);
+  p.qty -= need; p.status = p.qty > 0 ? 'In Stock' : 'Out of Stock';
+  r.status = 'Reserved'; r.holdUntil = until;
+  const mv = addStockMove(-need, 0, 0, need);
+  render();
+  api('resvForRequest', { id: id }).then(res => {
+    applyResvLists(res);
+    if (res.product) replaceOh(res.product);
+    render(); saveCache();
+    toast(`${id} reserved · 48 hours started`);
+  }).catch(err => {
+    if (mv) dropStockMove(mv);
+    S.reservations = resvBefore;
+    S.onHand = ohList().map(x => x.id === pBefore.id ? pBefore : x);
+    const x = S.rows.find(y => y.id === id); if (x) Object.assign(x, before);
+    render(); toast(err.message, true);
+  });
+}
 // Server answers that touch reservations carry the fresh lists.
 function applyResvLists(res) {
   if (!res) return;
