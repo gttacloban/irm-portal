@@ -198,6 +198,8 @@ label .req{color:var(--ca)}
 .prod-new{font-weight:700}
 .rq-unlink{color:#f0533e}
 .oh-lap{font-size:11px;font-weight:700;color:#b07cf0;white-space:nowrap;margin:0 2px}
+.wq.done{border-color:var(--line);background:transparent}
+.wq-st{font-style:normal;font-size:11px;font-weight:800;margin-right:6px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
 
 /* Sign-in / denied screens */
@@ -3043,7 +3045,28 @@ function ohReqMatch(r) {
     (!f.rtype || r.type === f.rtype) &&
     (!f.rcat || (f.rcat === 'orders' ? r.requestCategory !== 'Reservation' : r.requestCategory === f.rcat));
 }
-const ohWaitShown = pid => waitingFor(pid).map((r, i) => ({ r: r, n: i })).filter(o => !ohReqFilterOn() || ohReqMatch(o.r));
+// Customers shown in the Waiting column. With a Status filter (e.g. Fulfilled or Cancelled) the
+// matching finished requests show too, also old ones never linked (matched by their suggested product).
+function ohWaitShown(pid) {
+  const w = waitingFor(pid).map((r, i) => ({ r: r, n: i })).filter(o => !ohReqFilterOn() || ohReqMatch(o.r));
+  if (!S.oh.rstatus) return w;
+  const inQueue = new Set(w.map(o => o.r.id));
+  const held = new Set(resvList().filter(isOpenResv).map(v => v.po));
+  const more = S.rows.filter(r => !r.spare && !inQueue.has(r.id) && !held.has(r.id) && ohReqMatch(r) &&
+    (r.productId ? r.productId === pid : ohSuggestOf(r) === pid))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+    .map(r => ({ r: r, n: -1 }));
+  return w.concat(more);
+}
+const ohStColor = st => ({ fulfilled: '#4cc45a', cancelled: '#f0533e', 'awaiting unit': '#f6a03a', reserved: '#f2c230' })[String(st).toLowerCase()] || (isLapsed(st) ? '#b07cf0' : 'var(--muted)');
+// Suggested product of unlinked requests, worked out once per data change.
+let ohSugCache = { key: '', map: {} };
+function ohSuggestOf(r) {
+  const key = S.rows.length + '|' + ohListKey;
+  if (ohSugCache.key !== key) ohSugCache = { key: key, map: {} };
+  if (!(r.id in ohSugCache.map)) ohSugCache.map[r.id] = suggestProduct(r) || '';
+  return ohSugCache.map[r.id];
+}
 function ohResvShown(x) {
   if (!ohReqFilterOn()) return x._resv;
   return x._resv.filter(v => { const r = v.po && S.rows.find(y => y.id === v.po); return r && ohReqMatch(r); });
@@ -3061,7 +3084,7 @@ function ohFiltered() {
     (!f.type || x.type === f.type) &&
     (!f.status || x._st === f.status) &&
     (!ohReqFilterOn() || ohWaitShown(x.id).length || ohResvShown(x).length ||
-      (S.oh.rstatus && S.rows.some(r => r.productId === x.id && ohReqMatch(r)))) &&
+      false) &&
     (!f.to || (f.to === '__any' ? x._resv.length > 0 : f.to === '__none' ? !x._resv.length : x._resv.some(r => r.seller === f.to))) &&
     ((!f.from && !f.toDate) || x._resv.some(r => (!f.from || r.resvDate >= f.from) && (!f.toDate || r.resvDate <= f.toDate))));
   const k = f.sort, d = f.dir;
@@ -3147,9 +3170,13 @@ function renderOnHand() {
     // With a request filter on, only the matching customers show (their real queue number is kept).
     const w = ohWaitShown(x.id);
     if (!w.length) return '—';
-    return `<div class="wq-list">${w.slice(0, 3).map(({ r, n: i }) => `<span class="wq${q && reqHit(r, q) ? ' hit' : ''}" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.id)}',this)">
+    const cap = S.oh.rstatus ? w.length : 3;
+    return `<div class="wq-list">${w.slice(0, cap).map(({ r, n: i }) => i < 0
+      ? `<span class="wq done" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.id)}',this)">
+        <em class="wq-st" style="color:${ohStColor(r.status)}">${esc(statusLabel(r.status))}</em>${esc(r.id)} · ${esc(custName(r))}</span>`
+      : `<span class="wq${q && reqHit(r, q) ? ' hit' : ''}" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.id)}',this)">
         <i>${i + 1}</i>${esc(r.id)} · ${esc(custName(r))}${isLapsed(r.status) ? ' <em class="wq-lap">Lapsed</em>' : ''}${S.admin ? `<button type="button" class="go" ${x.qty >= (r.qty || 1) ? '' : 'disabled title="Out of Stock"'} onclick="event.stopPropagation();reserveForPO('${esc(r.id)}')">Reserve</button>` : ''}</span>`).join('')}
-      ${w.length > 3 ? `<button type="button" class="wq-more" onclick="openWaiting('${esc(x.id)}')">+${w.length - 3} more</button>` : ''}</div>`;
+      ${w.length > cap ? `<button type="button" class="wq-more" onclick="openWaiting('${esc(x.id)}')">+${w.length - 3} more</button>` : ''}</div>`;
   };
   $('ohBody').innerHTML = list.length ? list.map(x => `<tr${x.pending ? ' class="pending"' : ''}>
       <td class="mono">${esc(x.matcode)}</td><td>${esc(x.desc)}</td><td>${esc(x.type)}</td>
