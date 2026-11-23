@@ -1563,6 +1563,7 @@ a.nav-item:hover{color:#274ebd}
 @media (min-width:701px) and (max-width:1100px){ .kpis{grid-template-columns:repeat(3,minmax(0,1fr))} }
 /* On-Hand Stock */
 .oh-filters{grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr))}
+.oh-filters #oh_rcat{grid-column:1}
 .oh-add{margin-left:auto;font-weight:800}
 .oh-wrap{overflow-x:auto}
 .oh-table{width:100%;border-collapse:collapse;font-size:13px}
@@ -1961,6 +1962,15 @@ body.chat-open .chat-fab{display:none}
               <option value="">All Status</option><option value="In Stock">In Stock</option><option value="Out of Stock">Out of Stock</option>
             </select>
             <select id="oh_to" aria-label="Filter reserved to" onchange="setOh('to',this.value)"></select>
+            <select id="oh_rcat" aria-label="Filter by request category" onchange="setOh('rcat',this.value)">
+              <option value="">All Requests</option>
+              <option value="orders">All Standard &amp; Pre-Orders</option>
+              <option value="Standard Request">Standard Requests</option>
+              <option value="Latest Request">Pre-Order Requests</option>
+            </select>
+            <select id="oh_rstatus" aria-label="Filter by request status" onchange="setOh('rstatus',this.value)"></select>
+            <select id="oh_rseller" aria-label="Filter by request seller" onchange="setOh('rseller',this.value)"></select>
+            <select id="oh_rtype" aria-label="Filter by request type" onchange="setOh('rtype',this.value)"></select>
             <div class="date-range" role="group" aria-label="Filter by reservation date">
               <div class="date-range-title">📅 Resv Date Range</div>
               <label class="date-field" for="oh_from"><span>From Date</span><input type="date" id="oh_from" onchange="setOh('from',this.value)"></label>
@@ -3024,6 +3034,16 @@ function setOh(k, v) { S.oh[k] = v; S.oh.page = 1; renderOnHand(); }
 function ohTile(k, v) { S.oh[k] = S.oh[k] === v ? '' : v; S.oh.page = 1; renderOnHand(); }
 function setOhPageSize(v) { S.oh.size = Number(v) || 5; S.oh.page = 1; renderOnHand(); }
 function goOhPage(n) { S.oh.page = n; renderOnHand(); }
+// Request filters on the Inventory page (category, status, seller, type of the linked requests).
+const ohReqFilterOn = () => !!(S.oh.rcat || S.oh.rstatus || S.oh.rseller || S.oh.rtype);
+function ohReqMatch(r) {
+  const f = S.oh;
+  return !r.spare && !r.pending &&
+    (!f.rstatus || statusMatches(r, f.rstatus)) &&
+    (!f.rseller || r.seller === f.rseller) &&
+    (!f.rtype || r.type === f.rtype) &&
+    (!f.rcat || (f.rcat === 'orders' ? r.requestCategory !== 'Reservation' : r.requestCategory === f.rcat));
+}
 function clearOhDates() { S.oh.page = 1; S.oh.from = S.oh.toDate = ''; $('oh_from').value = $('oh_to_date').value = ''; renderOnHand(); }
 function sortOh(key) { S.oh.dir = S.oh.sort === key ? -S.oh.dir : 1; S.oh.sort = key; renderOnHand(); }
 // "(+1 lapsed)" next to Qty: a lapsed reservation still holds the unit (use Next › or ✕ to free it).
@@ -3036,6 +3056,7 @@ function ohFiltered() {
     (!q || norm(x.matcode + ' ' + x.desc).includes(q) || reqsOf(x.id).some(r => reqHit(r, q))) &&
     (!f.type || x.type === f.type) &&
     (!f.status || x._st === f.status) &&
+    (!ohReqFilterOn() || S.rows.some(r => r.productId === x.id && ohReqMatch(r))) &&
     (!f.to || (f.to === '__any' ? x._resv.length > 0 : f.to === '__none' ? !x._resv.length : x._resv.some(r => r.seller === f.to))) &&
     ((!f.from && !f.toDate) || x._resv.some(r => (!f.from || r.resvDate >= f.from) && (!f.toDate || r.resvDate <= f.toDate))));
   const k = f.sort, d = f.dir;
@@ -3068,6 +3089,11 @@ function renderOnHand() {
   if (k !== ohListKey) { const first = !ohListKey; ohListKey = k; if (!first && typeof renderTable === 'function') setTimeout(renderTable, 0); }
   const keep = (el, html, v) => { el.innerHTML = html; el.value = v; };
   keep($('oh_type'), '<option value="">All Type</option>' + stockTypes().map(t => `<option>${esc(t)}</option>`).join(''), S.oh.type);
+  // Request filters (same as Standard & Pre-Orders): show products whose linked requests match.
+  keep($('oh_rstatus'), '<option value="">All Statuses</option>' + (S.statuses || []).map(v => `<option value="${esc(v)}">${esc(statusLabel(v))}</option>`).join(''), S.oh.rstatus || '');
+  keep($('oh_rseller'), '<option value="">All Sellers</option>' + (S.sellers || []).map(v => `<option>${esc(v)}</option>`).join(''), S.oh.rseller || '');
+  keep($('oh_rtype'), '<option value="">All Types</option>' + (S.types || []).map(v => `<option>${esc(v)}</option>`).join(''), S.oh.rtype || '');
+  $('oh_rcat').value = S.oh.rcat || '';
   const sellers = stockSellers();
   // All Reserved + seller names. The hidden option is used by the Reservations menu
   // and the Reserved / Lapsed tiles.
@@ -3115,7 +3141,7 @@ function renderOnHand() {
   const waitCell = x => {
     const w = waitingFor(x.id);
     if (!w.length) return '—';
-    return `<div class="wq-list">${w.slice(0, 3).map((r, i) => `<span class="wq${q && reqHit(r, q) ? ' hit' : ''}" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.id)}',this)">
+    return `<div class="wq-list">${w.slice(0, 3).map((r, i) => `<span class="wq${(q && reqHit(r, q)) || (ohReqFilterOn() && ohReqMatch(r)) ? ' hit' : ''}" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.id)}',this)">
         <i>${i + 1}</i>${esc(r.id)} · ${esc(custName(r))}${isLapsed(r.status) ? ' <em class="wq-lap">Lapsed</em>' : ''}${S.admin ? `<button type="button" class="go" ${x.qty >= (r.qty || 1) ? '' : 'disabled title="Out of Stock"'} onclick="event.stopPropagation();reserveForPO('${esc(r.id)}')">Reserve</button>` : ''}</span>`).join('')}
       ${w.length > 3 ? `<button type="button" class="wq-more" onclick="openWaiting('${esc(x.id)}')">+${w.length - 3} more</button>` : ''}</div>`;
   };
