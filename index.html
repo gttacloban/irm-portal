@@ -1963,8 +1963,7 @@ body.chat-open .chat-fab{display:none}
             </select>
             <select id="oh_to" aria-label="Filter reserved to" onchange="setOh('to',this.value)"></select>
             <select id="oh_rcat" aria-label="Filter by request category" onchange="setOh('rcat',this.value)">
-              <option value="">All Requests</option>
-              <option value="orders">All Standard &amp; Pre-Orders</option>
+              <option value="">All Standard &amp; Pre-Orders</option>
               <option value="Standard Request">Standard Requests</option>
               <option value="Latest Request">Pre-Order Requests</option>
             </select>
@@ -3268,10 +3267,13 @@ function flushOhQty(id) {
 const flushAllOhQty = () => Object.keys(ohQ).forEach(flushOhQty);
 window.addEventListener('pagehide', flushAllOhQty);
 document.addEventListener('visibilitychange', () => { if (document.hidden) flushAllOhQty(); });
+// No confirmation pop-ups in the portal: every action runs straight away.
+// (noAsk keeps the old messages in the code only as a description of each action.)
+function noAsk() { return true; }
 function stockDelete(id) {
   const x = ohList().find(r => r.id === id); if (!x) return;
   const n = openResvOf(id).length;
-  if (!confirm(`Delete this product?\n${x.matcode} · ${x.desc}` + (n ? `\n\nIts ${n} open reservation(s) will be cancelled.` : ''))) return;
+  if (!noAsk(`Delete this product?\n${x.matcode} · ${x.desc}` + (n ? `\n\nIts ${n} open reservation(s) will be cancelled.` : ''))) return;
   const backup = ohList().slice(), rbackup = resvList().slice();
   S.onHand = ohList().filter(r => r.id !== id);
   S.reservations = resvList().map(r => r.productId === id && isOpenResv(r) ? Object.assign({}, r, { status: 'Cancelled', closedAt: Date.now() }) : r);
@@ -3316,7 +3318,7 @@ function resvDo(id, what) {
     ? (st === 'Pending' ? `Start the 48-hour timer for ${r.seller}?\n${r.desc}\n\nThis takes 1 unit off Qty (${p ? p.qty : '?'} → ${p ? Math.max(0, p.qty - 1) : '?'}).` : `Restart the 48 hours for ${r.seller}?\n${r.desc}`)
     : what === 'sold' ? `Mark as Sold?\n${r.seller} · ${r.desc}\n\nThe customer took the unit.${r.taken ? '' : ' Qty goes down by 1.'}`
     : `Cancel this reservation?\n${r.seller} · ${r.desc}${r.taken ? '\n\n1 unit goes back to Qty.' : ''}`;
-  if (!confirm(msg)) return;
+  if (!noAsk(msg)) return;
   if ((what === 'timer' || what === 'sold') && !r.taken && p && !p.qty) return toast('Out of Stock: Qty is 0. Add the unit with + first.', true);
   const before = Object.assign({}, r), pBefore = p ? Object.assign({}, p) : null;
   // show it at once
@@ -3354,7 +3356,7 @@ function clearResvHistory() {
   const done = r => (r.status === 'Sold' || r.status === 'Cancelled') && (!who || r.seller === who);
   const n = resvList().filter(done).length;
   if (!n) return;
-  if (!confirm(`Delete ${n} finished reservation(s)${who ? ' of ' + who : ''} from the history?\n\nOpen reservations are not touched. This cannot be undone.`)) return;
+  if (!noAsk(`Delete ${n} finished reservation(s)${who ? ' of ' + who : ''} from the history?\n\nOpen reservations are not touched. This cannot be undone.`)) return;
   const backup = resvList().slice();
   S.reservations = resvList().filter(r => !done(r));
   drawResvHistory();
@@ -4098,7 +4100,7 @@ function passToNext(resvId) {
   const v = resvList().find(x => x.id === resvId); if (!v) return;
   const n = nextInLine(v.productId, v.po);
   const was = S.rows.find(x => x.id === v.po);
-  if (!confirm(`${v.po}${was ? ' (' + custName(was) + ')' : ''} did not collect within 48 hours.\n\n` +
+  if (!noAsk(`${v.po}${was ? ' (' + custName(was) + ')' : ''} did not collect within 48 hours.\n\n` +
     (n ? `Give the unit to ${n.id} (${custName(n)}, seller ${n.seller})?\nThey get 48 hours. ${v.po} becomes Lapsed.`
        : `Nobody else is waiting: the unit goes back to Qty and ${v.po} becomes Lapsed.`))) return;
   api('passToNext', { id: resvId }).then(res => {
@@ -4342,7 +4344,7 @@ function linkOne(id) {
 function linkSuggested() {
   const links = unlinkedRequests().map(r => ({ id: r.id, productId: suggestProduct(r) })).filter(x => x.productId);
   if (!links.length) return;
-  if (!confirm(`Link ${links.length} request(s) to the suggested Inventory products?\n\nCheck a few first; you can change any link later with ✎ Edit.`)) return;
+  if (!noAsk(`Link ${links.length} request(s) to the suggested Inventory products?\n\nCheck a few first; you can change any link later with ✎ Edit.`)) return;
   sendLinks(links);
 }
 // Requests waiting for one product (oldest first).
@@ -4461,7 +4463,7 @@ function holdRequest(id) {
   // Starting or extending a hold needs no confirmation. Taking a unit back from another
   // customer still asks first, because that customer's request goes back to waiting.
   const takeBack = isLapsed(r.status) && r.reassignedTo;
-  if (takeBack && !confirm(`Take the unit back for ${r.first} ${r.last}?\n${r.handset} (${r.color})\n\nThe unit is now with ${r.reassignedTo}. That request goes back to Awaiting Unit, and ${r.id} gets a new hold.`)) return;
+  if (takeBack && !noAsk(`Take the unit back for ${r.first} ${r.last}?\n${r.handset} (${r.color})\n\nThe unit is now with ${r.reassignedTo}. That request goes back to Awaiting Unit, and ${r.id} gets a new hold.`)) return;
   const hours = HOLD_MAX;
   const backup = { ...r };
   // Extending a hold is shown at once; a new hold waits for the server to find a unit.
@@ -4526,7 +4528,7 @@ function moveToInventory(i) {
   const pid = ($('mvp' + i) || {}).value;
   if (!pid) return toast('Choose the Inventory product for ' + x.handset + ' ' + (x.color || ''), true);
   const pr = ohList().find(p => p.id === pid);
-  if (!confirm(`Move ${x.units} unit(s) of ${x.handset} ${x.color || ''} into\n${pr ? pr.desc + ' · ' + pr.matcode : 'this product'}?\n\nIts Qty goes up by ${x.units}.`)) return;
+  if (!noAsk(`Move ${x.units} unit(s) of ${x.handset} ${x.color || ''} into\n${pr ? pr.desc + ' · ' + pr.matcode : 'this product'}?\n\nIts Qty goes up by ${x.units}.`)) return;
   api('moveToInventory', { handset: x.handset, color: x.color, productId: pid }).then(res => {
     if (res.availableUnits) S.availableUnits = res.availableUnits;
     if (res.product) replaceOh(res.product); else render();
@@ -4624,7 +4626,7 @@ function openSpareForm(key) {
 function removeSpare(key) {
   const r = S.rows.find(x => x.spare && x.spareKey === key);
   if (!r || !S.admin) return;
-  if (!confirm(`Delete this spare handset?\n${r.handset} (${r.color}) · Qty ${r.qty}`)) return;
+  if (!noAsk(`Delete this spare handset?\n${r.handset} (${r.color}) · Qty ${r.qty}`)) return;
   const backup = S.rows.slice();
   S.rows = S.rows.filter(x => x !== r);
   render();
@@ -5041,7 +5043,7 @@ function clearChatThread() {
   const t = chatThreads().find(x => x.email === thread);
   const n = chatMsgs().filter(m => m.thread === thread).length;
   if (!n) return;
-  if (!confirm(isGroup ? `Clear the Team Group?\n\n${n} message(s) and their pictures will be deleted for everyone. This cannot be undone.`
+  if (!noAsk(isGroup ? `Clear the Team Group?\n\n${n} message(s) and their pictures will be deleted for everyone. This cannot be undone.`
     : `Clear the chat with ${t ? t.name : thread}?\n\n${n} message(s) and their pictures will be deleted for both of you. This cannot be undone.`)) return;
   const backup = chatMsgs().slice();
   S.chat.messages = chatMsgs().filter(m => m.thread !== thread);
