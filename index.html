@@ -3044,6 +3044,11 @@ function ohReqMatch(r) {
     (!f.rtype || r.type === f.rtype) &&
     (!f.rcat || (f.rcat === 'orders' ? r.requestCategory !== 'Reservation' : r.requestCategory === f.rcat));
 }
+const ohWaitShown = pid => waitingFor(pid).map((r, i) => ({ r: r, n: i })).filter(o => !ohReqFilterOn() || ohReqMatch(o.r));
+function ohResvShown(x) {
+  if (!ohReqFilterOn()) return x._resv;
+  return x._resv.filter(v => { const r = v.po && S.rows.find(y => y.id === v.po); return r && ohReqMatch(r); });
+}
 function clearOhDates() { S.oh.page = 1; S.oh.from = S.oh.toDate = ''; $('oh_from').value = $('oh_to_date').value = ''; renderOnHand(); }
 function sortOh(key) { S.oh.dir = S.oh.sort === key ? -S.oh.dir : 1; S.oh.sort = key; renderOnHand(); }
 // "(+1 lapsed)" next to Qty: a lapsed reservation still holds the unit (use Next › or ✕ to free it).
@@ -3056,7 +3061,8 @@ function ohFiltered() {
     (!q || norm(x.matcode + ' ' + x.desc).includes(q) || reqsOf(x.id).some(r => reqHit(r, q))) &&
     (!f.type || x.type === f.type) &&
     (!f.status || x._st === f.status) &&
-    (!ohReqFilterOn() || S.rows.some(r => r.productId === x.id && ohReqMatch(r))) &&
+    (!ohReqFilterOn() || ohWaitShown(x.id).length || ohResvShown(x).length ||
+      (S.oh.rstatus && S.rows.some(r => r.productId === x.id && ohReqMatch(r)))) &&
     (!f.to || (f.to === '__any' ? x._resv.length > 0 : f.to === '__none' ? !x._resv.length : x._resv.some(r => r.seller === f.to))) &&
     ((!f.from && !f.toDate) || x._resv.some(r => (!f.from || r.resvDate >= f.from) && (!f.toDate || r.resvDate <= f.toDate))));
   const k = f.sort, d = f.dir;
@@ -3136,12 +3142,13 @@ function renderOnHand() {
   const st = x => `<span class="oh-st ${x._st === 'In Stock' ? 'in' : 'out'}">${x._st}</span>`;
   const dates = x => [...new Set(x._resv.map(r => r.resvDate).filter(Boolean))].sort().join('<br>') || '—';
   const q = norm(S.oh.q);
-  const chips = x => x._resv.length ? `<div class="rv-list">${x._resv.map(resvChip).join('')}</div>` : '—';
+  const chips = x => { const rv = ohResvShown(x); return rv.length ? `<div class="rv-list">${rv.map(resvChip).join('')}</div>` : '—'; };
   // Waiting customers in queue order: first 3 as chips, the rest behind "+N more".
   const waitCell = x => {
-    const w = waitingFor(x.id);
+    // With a request filter on, only the matching customers show (their real queue number is kept).
+    const w = ohWaitShown(x.id);
     if (!w.length) return '—';
-    return `<div class="wq-list">${w.slice(0, 3).map((r, i) => `<span class="wq${(q && reqHit(r, q)) || (ohReqFilterOn() && ohReqMatch(r)) ? ' hit' : ''}" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.id)}',this)">
+    return `<div class="wq-list">${w.slice(0, 3).map(({ r, n: i }) => `<span class="wq${q && reqHit(r, q) ? ' hit' : ''}" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.id)}',this)">
         <i>${i + 1}</i>${esc(r.id)} · ${esc(custName(r))}${isLapsed(r.status) ? ' <em class="wq-lap">Lapsed</em>' : ''}${S.admin ? `<button type="button" class="go" ${x.qty >= (r.qty || 1) ? '' : 'disabled title="Out of Stock"'} onclick="event.stopPropagation();reserveForPO('${esc(r.id)}')">Reserve</button>` : ''}</span>`).join('')}
       ${w.length > 3 ? `<button type="button" class="wq-more" onclick="openWaiting('${esc(x.id)}')">+${w.length - 3} more</button>` : ''}</div>`;
   };
