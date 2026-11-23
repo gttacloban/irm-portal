@@ -197,6 +197,7 @@ label .req{color:var(--ca)}
 .prod-meta .in{color:#4cc45a}.prod-meta .out{color:#f0533e}
 .prod-new{font-weight:700}
 .rq-unlink{color:#f0533e}
+.oh-lap{font-size:11px;font-weight:700;color:#b07cf0;white-space:nowrap;margin:0 2px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
 
 /* Sign-in / denied screens */
@@ -1558,7 +1559,7 @@ a.nav-item:hover{color:#274ebd}
   .tblwrap .admin-col,.tblwrap td.wl,.tblwrap .unit-chip{white-space:nowrap}
 }
 /* 10 summary tiles: 5 per row on wide screens */
-@media (min-width:1101px){ .kpis{grid-template-columns:repeat(5,minmax(0,1fr))} }
+@media (min-width:1101px){ .kpis{grid-template-columns:repeat(6,minmax(0,1fr))} }
 @media (min-width:701px) and (max-width:1100px){ .kpis{grid-template-columns:repeat(3,minmax(0,1fr))} }
 /* On-Hand Stock */
 .oh-filters{grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr))}
@@ -2843,18 +2844,25 @@ function renderKpis() {
   const served = Number.isFinite(Number(S.servedAllTime)) ? Number(S.servedAllTime) : fulfilled.length;
   // Waiting requests that could be reserved now: their Inventory product has enough Qty.
   const ready = awaiting.filter(r => { const pr = productOf(r); return pr && Number(pr.qty) >= (Number(r.qty) || 1); });
-  const units = rows => summarizeUnits(rows) + ' handset units';
+  // The six Dashboard tiles. One reservation row = one unit.
+  const resv = resvList().filter(isOpenResv);
+  const activeResv = resv.filter(v => resvState(v) !== 'Lapsed');
+  const lapsedResv = resv.filter(v => resvState(v) === 'Lapsed');
+  // Requests that lapsed on the old For Release path (no reservation row) are lapsed reservations too.
+  const lapsedOld = lapsed.filter(r => !resv.some(v => v.po === r.id));
+  const lapsedCount = lapsedResv.length + lapsedOld.length;
+  // Total Inventory = all units in the store: free Qty + units held by reservations (active or lapsed).
+  const totalInv = onHand + activeResv.length + lapsedResv.length;
+  const inStock = totalInv - activeResv.length;                 // In Stock = Total Inventory − Active Reservations
+  const outProducts = stockRows.filter(x => !(Number(x.qty) > 0) && !openResvOf(x.id).some(v => resvState(v) === 'Lapsed'));
+  const plural = (n, a, b) => formatCount(n) + ' ' + (n === 1 ? a : b);
   const cards = [
-    { label: 'Total Units', value: onHand, subtitle: `${formatCount(stockRows.length)} ${stockRows.length === 1 ? 'product' : 'products'} in inventory`, colors: ['#3b4fe0','#2433b0'], icon: '▦', key: 'nav:inventory' },
-    { label: 'Total Reservations', value: stockReserved.length, subtitle: 'Open reservations (sellers + requests)', colors: ['#2fa8f0','#1678c8'], icon: '⊞', key: 'nav:reservations' },
-    { label: 'Total Pre-Order Requests', value: preorders.length, subtitle: units(preorders), colors: ['#22c4c9','#0b8f9c'], icon: '◎', key: 'cat:Latest Request' },
-    { label: 'Total Standard Requests', value: standard.length, subtitle: units(standard), colors: ['#8b95a8','#5f6a80'], icon: '▤', key: 'cat:Standard Request' },
-    { label: 'Served', value: served, subtitle: 'Customers who got the handset (incl. archive)', colors: ['#8fd13a','#4f9a12'], icon: '★', key: 'status:Fulfilled' },
-    { label: 'Awaiting Units', value: awaiting.length, subtitle: units(awaiting), colors: ['#f6a03a','#dd6f16'], icon: '◷', key: 'status:Awaiting Unit' },
-    { label: 'Fulfilled', value: fulfilled.length, subtitle: units(fulfilled), colors: ['#4cc45a','#1f8f34'], icon: '✓', key: 'status:Fulfilled' },
-    { label: 'Cancelled', value: cancelled.length, subtitle: units(cancelled), colors: ['#f0533e','#c42b1d'], icon: '✕', key: 'status:Cancelled' },
-    { label: 'Lapsed', value: lapsed.length, subtitle: units(lapsed), colors: ['#b07cf0','#7c48c9'], icon: '⌛', key: 'status:' + (S.statuses.find(st => isLapsed(st)) || 'Expired') },
-    { label: 'Ready to Reserve', value: ready.length, subtitle: 'Waiting requests whose product is in stock', colors: ['#f2c230','#d2960c'], icon: '▣', key: 'status:Awaiting Unit' }
+    { label: 'Total Inventory', value: totalInv, subtitle: `All units in the store · ${plural(stockRows.length, 'product', 'products')}`, colors: ['#3b4fe0','#2433b0'], icon: '▦', key: 'nav:inventory' },
+    { label: 'Active Reservations', value: activeResv.length, subtitle: 'Reserved, not yet fulfilled, cancelled or lapsed', colors: ['#f2c230','#d2960c'], icon: '⊞', key: 'nav:reservations' },
+    { label: 'Pending Pre-Orders & Requests', value: awaiting.length, subtitle: `${formatCount(awaiting.filter(r => r.requestCategory === 'Latest Request').length)} pre-orders · ${formatCount(awaiting.filter(r => r.requestCategory !== 'Latest Request').length)} standard · ${formatCount(ready.length)} ready`, colors: ['#f6a03a','#dd6f16'], icon: '◷', key: 'status:Awaiting Unit' },
+    { label: 'Lapsed Reservations', value: lapsedCount, subtitle: lapsedCount ? 'Not claimed within 48 hours · needs action' : 'Not claimed within 48 hours', colors: ['#b07cf0','#7c48c9'], icon: '⌛', key: 'status:' + (S.statuses.find(st => isLapsed(st)) || 'Expired') },
+    { label: 'In Stock', value: inStock, subtitle: 'Total Inventory − Active Reservations', colors: ['#4cc45a','#1f8f34'], icon: '✓', key: 'oh:In Stock' },
+    { label: 'Out of Stock', value: outProducts.length, subtitle: outProducts.length ? plural(outProducts.length, 'product', 'products') + ' with 0 units · needs action' : 'No product at 0 units', colors: ['#f0533e','#c42b1d'], icon: '✕', key: 'oh:Out of Stock' }
   ];
   $('kpis').innerHTML = cards.map(k => {
     const active = (k.key.indexOf('status:') === 0 && S.filter.status === k.key.slice(7)) ||
@@ -3018,12 +3026,16 @@ function setOhPageSize(v) { S.oh.size = Number(v) || 5; S.oh.page = 1; renderOnH
 function goOhPage(n) { S.oh.page = n; renderOnHand(); }
 function clearOhDates() { S.oh.page = 1; S.oh.from = S.oh.toDate = ''; $('oh_from').value = $('oh_to_date').value = ''; renderOnHand(); }
 function sortOh(key) { S.oh.dir = S.oh.sort === key ? -S.oh.dir : 1; S.oh.sort = key; renderOnHand(); }
+// "(+1 lapsed)" next to Qty: a lapsed reservation still holds the unit (use Next › or ✕ to free it).
+const lapTag = x => x._lap ? `<span class="oh-lap" title="${x._lap} unit${x._lap > 1 ? 's' : ''} held by a lapsed reservation. In Stock = ${(Number(x.qty) || 0) + x._lap}. Use Next › or ✕ on the reservation to free it.">(+${x._lap} lapsed)</span>` : '';
 function ohFiltered() {
   const f = S.oh, q = norm(f.q);
-  const list = ohList().map(x => Object.assign({}, x, { _resv: openResvOf(x.id) })).filter(x =>
+  // _lap: units held by lapsed reservations. They count as In Stock (same as the Dashboard).
+  const list = ohList().map(x => { const rv = openResvOf(x.id); const lap = rv.filter(r => resvState(r) === 'Lapsed').length;
+    return Object.assign({}, x, { _resv: rv, _lap: lap, _st: (Number(x.qty) || 0) + lap > 0 ? 'In Stock' : 'Out of Stock' }); }).filter(x =>
     (!q || norm(x.matcode + ' ' + x.desc).includes(q) || reqsOf(x.id).some(r => reqHit(r, q))) &&
     (!f.type || x.type === f.type) &&
-    (!f.status || x.status === f.status) &&
+    (!f.status || x._st === f.status) &&
     (!f.to || (f.to === '__any' ? x._resv.length > 0 : f.to === '__none' ? !x._resv.length : x._resv.some(r => r.seller === f.to))) &&
     ((!f.from && !f.toDate) || x._resv.some(r => (!f.from || r.resvDate >= f.from) && (!f.toDate || r.resvDate <= f.toDate))));
   const k = f.sort, d = f.dir;
@@ -3090,12 +3102,12 @@ function renderOnHand() {
   const first = (S.oh.page - 1) * S.oh.size;
   const list = filteredAll.slice(first, first + S.oh.size);
   const qtyCell = x => S.admin
-    ? `<span class="oh-qty"><button type="button" class="oh-step" title="Minus 1 (sold)" onclick="stockQty('${esc(x.id)}',-1)" ${x.qty ? '' : 'disabled'}>−</button><b>${x.qty}</b><button type="button" class="oh-step" title="Add 1 (received)" onclick="stockQty('${esc(x.id)}',1)">+</button></span>`
-    : `<b>${x.qty}</b>`;
+    ? `<span class="oh-qty"><button type="button" class="oh-step" title="Minus 1 (sold)" onclick="stockQty('${esc(x.id)}',-1)" ${x.qty ? '' : 'disabled'}>−</button><b>${x.qty}</b>${lapTag(x)}<button type="button" class="oh-step" title="Add 1 (received)" onclick="stockQty('${esc(x.id)}',1)">+</button></span>`
+    : `<b>${x.qty}</b>${lapTag(x)}`;
   const actions = x => S.admin ? `<span class="oh-actions">
       <button class="icon" title="Edit" onclick="openStockForm('${esc(x.id)}')">✎</button>
       <button class="icon" title="Delete" onclick="stockDelete('${esc(x.id)}')">🗑</button></span>` : '';
-  const st = x => `<span class="oh-st ${x.qty ? 'in' : 'out'}">${x.status}</span>`;
+  const st = x => `<span class="oh-st ${x._st === 'In Stock' ? 'in' : 'out'}">${x._st}</span>`;
   const dates = x => [...new Set(x._resv.map(r => r.resvDate).filter(Boolean))].sort().join('<br>') || '—';
   const q = norm(S.oh.q);
   const chips = x => x._resv.length ? `<div class="rv-list">${x._resv.map(resvChip).join('')}</div>` : '—';
@@ -3336,6 +3348,11 @@ $('kpis').addEventListener('click', function(e) {
 });
 function kpiClick(key) {
   if (key.indexOf('nav:') === 0) return navigateTo(key.slice(4));
+  if (key.indexOf('oh:') === 0) {           // Inventory filtered by In Stock / Out of Stock
+    const v = key.slice(3);
+    $('oh_status').value = v; setOh('status', v);
+    return navigateTo('inventory');
+  }
   if (key.indexOf('cat:') === 0) {
     const v = S.filter.category === key.slice(4) ? '' : key.slice(4);
     $('fl_category').value = v; setFilter('category', v);
@@ -3354,7 +3371,7 @@ function renderCharts() {
   // Each status keeps the color of its tile in Dashboard Overview.
   const STATUS_CHART_COLORS = {
     'awaiting unit': '#f6a03a', 'awaiting handset': '#f6a03a',   // Awaiting Units tile (orange)
-    'for release': '#2fa8f0', 'reserved': '#2fa8f0',              // Total Reservations tile (blue)
+    'for release': '#f2c230', 'reserved': '#f2c230',              // Active Reservations tile (yellow)
     'fulfilled': '#4cc45a',                                       // Fulfilled tile (green)
     'cancelled': '#f0533e',                                       // Cancelled tile (red)
     'lapsed': '#b07cf0', 'expired': '#b07cf0',                    // Lapsed tile (purple)
