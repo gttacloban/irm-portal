@@ -201,6 +201,9 @@ label .req{color:var(--ca)}
 .rv-nopo{font-style:normal;font-size:10px;font-weight:700;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 4px;margin-left:3px}
 .date-pill .clock{font-variant-numeric:tabular-nums;white-space:nowrap}
 .date-pill .clock small{font-size:.75em;opacity:.7}
+.oh-loose{display:flex;flex-direction:column;gap:6px;padding:4px 2px}
+.oh-loose > b{color:#b07cf0}
+.oh-loose-row td{background:rgba(176,124,240,.06)}
 .wq.done{border-color:var(--line);background:transparent}
 .wq-st{font-style:normal;font-size:11px;font-weight:800;margin-right:6px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
@@ -3070,6 +3073,14 @@ function ohWaitShown(pid) {
     .map(r => ({ r: r, n: -1 }));
   return w.concat(more);
 }
+function ohLooseRequests() {
+  const q = norm(S.oh.q);
+  if (!ohReqFilterOn() && !q) return [];
+  const ids = new Set(ohList().map(p => p.id));
+  return S.rows.filter(r => !r.spare && !r.pending && ohReqMatch(r) && (!q || reqHit(r, q)) &&
+      !(r.productId && ids.has(r.productId)) && !ohSuggestOf(r))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}
 const ohStColor = st => ({ fulfilled: '#4cc45a', cancelled: '#f0533e', 'awaiting unit': '#f6a03a', reserved: '#f2c230' })[String(st).toLowerCase()] || (isLapsed(st) ? '#b07cf0' : 'var(--muted)');
 // Suggested product of unlinked requests, worked out once per data change.
 let ohSugCache = { key: '', map: {} };
@@ -3083,7 +3094,9 @@ function ohResvShown(x) {
   const cq = ohCustQ(x.id);
   if (!ohReqFilterOn() && !cq) return x._resv;
   return x._resv.filter(v => { const r = v.po && S.rows.find(y => y.id === v.po);
-    return r ? (!ohReqFilterOn() || ohReqMatch(r)) && (!cq || reqHit(r, cq)) : !ohReqFilterOn() && !cq; });
+    if (r) return (!ohReqFilterOn() || ohReqMatch(r)) && (!cq || reqHit(r, cq));
+    // Old seller reservation (no PO): shown with no filter, or under the Lapsed filter when it lapsed.
+    return !cq && (!ohReqFilterOn() || (isLapsed(S.oh.rstatus) && resvState(v) === 'Lapsed' && !S.oh.rcat && !S.oh.rtype && (!S.oh.rseller || v.seller === S.oh.rseller))); });
 }
 function clearOhDates() { S.oh.page = 1; S.oh.from = S.oh.toDate = ''; $('oh_from').value = $('oh_to_date').value = ''; renderOnHand(); }
 function sortOh(key) { S.oh.dir = S.oh.sort === key ? -S.oh.dir : 1; S.oh.sort = key; renderOnHand(); }
@@ -3195,18 +3208,25 @@ function renderOnHand() {
         <i>${i + 1}</i>${esc(r.id)} · ${esc(custName(r))}${isLapsed(r.status) ? ' <em class="wq-lap">Lapsed</em>' : ''}${S.admin ? `<button type="button" class="go" ${x.qty >= (r.qty || 1) ? '' : 'disabled title="Out of Stock"'} onclick="event.stopPropagation();reserveForPO('${esc(r.id)}')">Reserve</button>` : ''}</span>`).join('')}
       ${w.length > cap ? `<button type="button" class="wq-more" onclick="openWaiting('${esc(x.id)}')">+${w.length - 3} more</button>` : ''}</div>`;
   };
-  $('ohBody').innerHTML = list.length ? list.map(x => `<tr${x.pending ? ' class="pending"' : ''}>
+  // Requests that match the request filters / customer search but have no product in Inventory
+  // (not linked, and no product fits their model and color). Shown on top so none is hidden.
+  const loose = ohLooseRequests();
+  const looseHtml = loose.length ? `<div class="oh-loose"><b>Not linked to a product (${loose.length})</b>
+      <span class="small">Open the customer and Link the right product, or add the product to Inventory.</span>
+      <div class="wq-list">${loose.map(r => `<span class="wq done" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.id)}',this)">
+        <em class="wq-st" style="color:${ohStColor(shownStatus(r))}">${esc(statusLabel(shownStatus(r)))}</em>${esc(r.id)} · ${esc(custName(r))} <span class="small">· ${esc(r.handset)} ${esc(r.color)}</span></span>`).join('')}</div></div>` : '';
+  $('ohBody').innerHTML = (looseHtml ? `<tr class="oh-loose-row"><td colspan="8">${looseHtml}</td></tr>` : '') + (list.length || looseHtml ? list.map(x => `<tr${x.pending ? ' class="pending"' : ''}>
       <td class="mono">${esc(x.matcode)}</td><td>${esc(x.desc)}</td><td>${esc(x.type)}</td>
       <td>${qtyCell(x)}</td><td>${st(x)}</td><td>${chips(x)}</td><td>${waitCell(x)}</td>
       <td>${actions(x)}</td></tr>`).join('')
-    : `<tr><td colspan="8" class="empty">${all.length ? 'No products match the filters.' : (S.admin ? 'No products yet. Press + Add New Product.' : 'No products in stock yet.')}</td></tr>`;
-  $('ohCards').innerHTML = list.map(x => `<div class="card oh-card">
+    : `<tr><td colspan="8" class="empty">${all.length ? 'No products match the filters.' : (S.admin ? 'No products yet. Press + Add New Product.' : 'No products in stock yet.')}</td></tr>`);
+  $('ohCards').innerHTML = (looseHtml ? `<div class="card oh-card">${looseHtml}</div>` : '') + (list.map(x => `<div class="card oh-card">
       <div class="top"><div><div class="nm">${esc(x.desc)}</div><div class="small mono">${esc(x.matcode)} · ${esc(x.type)}</div></div>${st(x)}</div>
       <div class="oh-card-row"><span>Qty</span>${qtyCell(x)}</div>
       ${x._resv.length ? `<div class="oh-card-row oh-card-rv"><span>Reserved</span>${chips(x)}</div>` : ''}
       ${waitingFor(x.id).length ? `<div class="oh-card-row oh-card-rv"><span>Waiting</span>${waitCell(x)}</div>` : ''}
       ${S.admin ? `<div class="oh-card-row oh-card-act">${actions(x)}</div>` : ''}</div>`).join('') ||
-      `<div class="note">${all.length ? 'No products match the filters.' : 'No products yet.'}</div>`;
+      (looseHtml ? '' : `<div class="note">${all.length ? 'No products match the filters.' : 'No products yet.'}</div>`));
   const n = filteredAll.length;
   $('ohCount').textContent = n
     ? `Showing ${first + 1}–${first + list.length} of ${n} ${n === 1 ? 'product' : 'products'}${n !== all.length ? ` (${all.length} total)` : ''}`
