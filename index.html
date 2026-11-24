@@ -199,6 +199,8 @@ label .req{color:var(--ca)}
 .rq-unlink{color:#f0533e}
 .oh-lap{font-size:11px;font-weight:700;color:#b07cf0;white-space:nowrap;margin:0 2px}
 .rv-nopo{font-style:normal;font-size:10px;font-weight:700;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 4px;margin-left:3px}
+.date-pill .clock{font-variant-numeric:tabular-nums;white-space:nowrap}
+.date-pill .clock small{font-size:.75em;opacity:.7}
 .wq.done{border-color:var(--line);background:transparent}
 .wq-st{font-style:normal;font-size:11px;font-weight:800;margin-right:6px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
@@ -1912,7 +1914,7 @@ body.chat-open .chat-fab{display:none}
         </section>
         <div class="welcome-row">
           <div><h2>Dashboard Overview</h2></div>
-          <div class="date-pill" id="todayLabel" aria-label="Today's date"></div>
+          <div class="date-pill" id="todayLabel" aria-label="Date and time in the Philippines"></div>
         </div>
         <div class="rolebar" id="rolebar" style="display:none"></div>
         <div class="kpis" id="kpis" aria-label="Request summary"></div>
@@ -3538,8 +3540,16 @@ function navigateTo(area) {
   if (el) el.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
   toggleSidebar(false);
 }
+// Date + live clock in Philippine time, e.g. "Tue, Nov 24, 2026 · 9:00:05 PM PHT".
 (function initDashboardDate(){
-  $('todayLabel').textContent = new Date().toLocaleDateString('en-US',{timeZone:PH_TZ,weekday:'short',month:'short',day:'numeric',year:'numeric'});
+  const tick = () => {
+    const now = new Date();
+    const d = now.toLocaleDateString('en-US', { timeZone: PH_TZ, weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    const t = now.toLocaleTimeString('en-US', { timeZone: PH_TZ, hour: 'numeric', minute: '2-digit', second: '2-digit' });
+    $('todayLabel').innerHTML = `${esc(d)} <span class="clock">· ${esc(t)} <small>PHT</small></span>`;
+  };
+  tick();
+  setInterval(tick, 1000);
 })();
 
 function renderTop() {
