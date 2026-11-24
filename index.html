@@ -204,6 +204,7 @@ label .req{color:var(--ca)}
 .oh-loose{display:flex;flex-direction:column;gap:6px;padding:4px 2px}
 .oh-loose > b{color:#b07cf0}
 .oh-loose-row td{background:rgba(176,124,240,.06)}
+#colorPicker.locked input,#colorPicker.locked .color-arrow{opacity:.55;cursor:not-allowed}
 .wq.done{border-color:var(--line);background:transparent}
 .wq-st{font-style:normal;font-size:11px;font-weight:800;margin-right:6px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
@@ -4105,7 +4106,11 @@ function prodLabel(v) {
   const x = ohList().find(p => p.id === v);
   return x ? `${x.desc} · ${x.matcode}` : '(product deleted)';
 }
-function setProdLabel() { $('f_prodSearch').value = prodLabel($('f_product').value); }
+function setProdLabel() {
+  $('f_prodSearch').value = prodLabel($('f_product').value);
+  const v = $('f_product').value;
+  lockColor(!!v && v !== NOT_IN_INV && ohList().some(p => p.id === v));
+}
 function renderProdDropdown() {
   const q = norm($('prodQ').value);
   const list = ohList().slice().sort((a, b) => String(a.type).localeCompare(String(b.type)) || String(a.desc).localeCompare(String(b.desc)))
@@ -4173,6 +4178,32 @@ document.addEventListener('pointerdown', e => { if (!$('prodPicker').contains(e.
 function productPicked() {
   const p = ohList().find(x => x.id === $('f_product').value);
   if (p && !$('f_handset').value.trim()) $('f_handset').value = p.desc;
+  // The color comes from the Inventory product, so the field is locked.
+  // Only "Not in Inventory (new model)" lets the seller pick or type a color.
+  if (p) $('f_color').value = colorFromDesc(p.desc);
+  else if ($('f_color').dataset.auto === '1') $('f_color').value = '';
+  lockColor(!!p);
+}
+// The color named in a product's Item Desc, e.g. "iPhone 18 Pro 256GB Burgundy" → "Burgundy".
+function colorFromDesc(desc) {
+  const d = ' ' + norm(desc).replace(/[^a-z0-9]+/g, ' ') + ' ';
+  const known = colorHistory().concat(['Black', 'White', 'Silver', 'Gold', 'Blue', 'Green', 'Red', 'Pink', 'Purple', 'Orange',
+    'Yellow', 'Gray', 'Grey', 'Teal', 'Lavender', 'Burgundy', 'Glacier', 'Night Sky', 'Star White', 'Cyan', 'Titanium']);
+  const hit = known.filter(c => c && d.includes(' ' + norm(c).replace(/[^a-z0-9]+/g, ' ').trim() + ' '))
+    .sort((a, b) => b.length - a.length)[0];
+  if (hit) return hit;
+  const words = String(desc).replace(/[·•|*]+/g, ' ').trim().split(/\s+/);
+  const i = words.map(w => /\d/.test(w)).lastIndexOf(true);       // words after the last number (storage)
+  const tail = i >= 0 && i < words.length - 1 ? words.slice(i + 1) : [];
+  // Only a short plain tail is a color (1–2 words); otherwise (modem kits, SIM cards…) there is none.
+  return tail.length && tail.length <= 2 && tail.every(w => /^[a-z]+$/i.test(w)) ? tail.join(' ') : 'N/A';
+}
+function lockColor(on) {
+  $('f_color').disabled = on; $('colorArrow').disabled = on;
+  $('f_color').dataset.auto = on ? '1' : '';
+  $('colorPicker').classList.toggle('locked', on);
+  $('colorPicker').title = on ? 'Color comes from the Inventory product. Choose Not in Inventory to type a color.' : '';
+  if (on) closeColorDropdown();
 }
 const titleCase = t => String(t || '').toLowerCase().replace(/(^|[\s'-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
 const custName = r => { const n = [r.first, r.last].filter(x => x && !/^n\/?a$/i.test(String(x).trim())).join(' ').trim(); return n ? titleCase(n) : 'No name'; };
