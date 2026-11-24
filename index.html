@@ -3145,6 +3145,9 @@ function renderOnHand() {
   const total = all.reduce((a, x) => a + x.qty, 0);
   const open = resvList().filter(isOpenResv);
   const lapsed = open.filter(r => resvState(r) === 'Lapsed');
+  // Same count as the Dashboard tile: lapsed reservations + old lapsed requests with no reservation.
+  const lapsedOld = S.rows.filter(r => !r.spare && isLapsed(r.status) && !open.some(v => v.po === r.id));
+  const lapStatus = (S.statuses || []).find(st => isLapsed(st)) || 'Expired';
   // label, value, icon, color 1, color 2, filter to apply when tapped
   const tiles = [
     // Products = phone types, Total Units = item descriptions that still have units
@@ -3154,7 +3157,7 @@ function renderOnHand() {
     ['In Stock', total, '✓', '#2fbf71', '#13894b', ['status', 'In Stock'], 'Qty'],
     ['Out of Stock', all.filter(x => !x.qty).length, '✕', '#f0533e', '#c42b1d', ['status', 'Out of Stock'], 'Item Desc'],
     ['Reserved', open.length - lapsed.length, '⊞', '#22a7e8', '#0d76b8', ['to', '__any'], 'Qty'],
-    ['Lapsed', lapsed.length, '⌛', '#b07cf0', '#7c48c9', ['to', '__any'], 'Qty'],
+    ['Lapsed', lapsed.length + lapsedOld.length, '⌛', '#b07cf0', '#7c48c9', ['rstatus', lapStatus], 'Requests'],
     ['Sold', resvList().filter(r => r.status === 'Sold').length, '★', '#f2b01e', '#d07a08', ['history', ''], 'Qty']
   ];
   $('ohSummary').innerHTML = tiles.map(([l, v, ic, c1, c2, f, unit]) => {
@@ -3579,8 +3582,16 @@ function isAvailableUnitRow(r) {
   if (r.reassignedTo) return false;
   return !!r.spare || isLapsed(r.status) || norm(r.status) === 'available units';
 }
+// A Reserved request whose 48 hours have passed shows as Lapsed at once (as in Inventory),
+// without waiting for the server's hourly check to change the saved status.
+function shownStatus(r) {
+  if (r.status !== 'Reserved' && r.status !== 'For Release') return r.status;
+  const t = r.holdUntil ? new Date(r.holdUntil).getTime() : 0;
+  const lapsedResv = resvList().some(v => v.po === r.id && isOpenResv(v) && resvState(v) === 'Lapsed');
+  return (t && t < Date.now()) || lapsedResv ? (S.statuses.find(st => isLapsed(st)) || 'Expired') : r.status;
+}
 function statusMatches(r, st) {
-  return norm(st) === 'available units' ? isAvailableUnitRow(r) : sameStatus(r.status, st);
+  return norm(st) === 'available units' ? isAvailableUnitRow(r) : sameStatus(shownStatus(r), st);
 }
 function syncRequestsTitle() {
   const t = $('requestsTitle'); if (!t) return;
@@ -4356,7 +4367,7 @@ function reqListRow(r) {
   return `<div class="ul-row rq-row${r.pending ? ' pending' : ''}">
     <span class="ul-main"><b class="ul-name" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.id)}',this)">${esc(r.pending ? 'Saving…' : r.id)} · ${esc(custName(r))}</b>
       <span>📞 ${esc(r.mobile || '—')} · WL # ${esc(wlText(r.waitlist))} · ${esc(r.date)}${r.unit ? ' · Unit ' + unitChips(r.unit) : ''}</span>
-      <span>${esc(r.handset)} · ${esc(r.color)} · ${esc(r.seller)} · <b class="rq-stx" style="color:var(--${statusKey(r.status)}-ink)">${esc(r.checking ? 'Checking unit…' : statusLabel(r.status))}</b>${r.holdUntil && (r.status === 'Reserved' || r.status === 'For Release') ? ' · ⏱ ' + esc(holdLeft(r)) : ''}</span>
+      <span>${esc(r.handset)} · ${esc(r.color)} · ${esc(r.seller)} · <b class="rq-stx" style="color:var(--${statusKey(shownStatus(r))}-ink)">${esc(r.checking ? 'Checking unit…' : statusLabel(shownStatus(r)))}</b>${r.holdUntil && shownStatus(r) === r.status && (r.status === 'Reserved' || r.status === 'For Release') ? ' · ⏱ ' + esc(holdLeft(r)) : ''}</span>
       ${r.remarks ? `<span class="rmk" title="${esc(r.remarks)}">📝 ${esc(r.remarks)}</span>` : ''}</span>
     <span class="rq-link">${product}</span>
   </div>`;
