@@ -4177,13 +4177,16 @@ document.addEventListener('pointerdown', e => { if (!$('prodPicker').contains(e.
 // Choosing a product fills the Handset Description when it is empty.
 function productPicked() {
   const p = ohList().find(x => x.id === $('f_product').value);
-  if (p && !$('f_handset').value.trim()) $('f_handset').value = p.desc;
+  // Handset Description follows the chosen product (cleared again if the seller goes back to a new model).
+  if (p) { $('f_handset').value = p.desc; $('f_handset').dataset.auto = '1'; }
+  else if ($('f_handset').dataset.auto === '1') { $('f_handset').value = ''; $('f_handset').dataset.auto = ''; }
   // The color comes from the Inventory product, so the field is locked.
   // Only "Not in Inventory (new model)" lets the seller pick or type a color.
   if (p) $('f_color').value = colorFromDesc(p.desc);
   else if ($('f_color').dataset.auto === '1') $('f_color').value = '';
   lockColor(!!p);
 }
+$('f_handset').addEventListener('input', () => { $('f_handset').dataset.auto = ''; });
 // The color named in a product's Item Desc, e.g. "iPhone 18 Pro 256GB Burgundy" → "Burgundy".
 function colorFromDesc(desc) {
   const d = ' ' + norm(desc).replace(/[^a-z0-9]+/g, ' ') + ' ';
