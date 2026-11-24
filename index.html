@@ -3005,7 +3005,7 @@ if ('ResizeObserver' in window) {
 window.addEventListener('resize', () => { clearTimeout(smResizeTimer); smResizeTimer = setTimeout(() => { if (S.loaded) renderStockChart(); }, 200); });
 
 /* ================= On-Hand Stock: Inventory & Reservations ================= */
-const STOCK_TYPES_DEFAULT = ['iPhone', 'Honor', 'Samsung', 'Huawei', 'Oppo', 'Infinix', 'Vivo', 'Xiaomi', 'Realme', 'Modem Kit'];
+const STOCK_TYPES_DEFAULT = ['iPhone', 'Honor', 'Samsung', 'Huawei', 'Oppo', 'Infinix', 'Vivo', 'Xiaomi', 'Realme', 'Modem Kit', 'Simcards', 'Freebies', 'Paperbags'];
 S.oh = S.oh || { q: '', type: '', status: '', to: '', from: '', toDate: '', sort: 'desc', dir: 1, page: 1, size: 5 };
 const ohList = () => S.onHand || [];
 const resvList = () => S.reservations || [];
