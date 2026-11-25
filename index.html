@@ -1573,7 +1573,7 @@ a.nav-item:hover{color:#274ebd}
   .tblwrap .admin-col,.tblwrap td.wl,.tblwrap .unit-chip{white-space:nowrap}
 }
 /* 10 summary tiles: 5 per row on wide screens */
-@media (min-width:1101px){ .kpis{grid-template-columns:repeat(6,minmax(0,1fr))} }
+@media (min-width:1101px){ .kpis{grid-template-columns:repeat(5,minmax(0,1fr))} }
 @media (min-width:701px) and (max-width:1100px){ .kpis{grid-template-columns:repeat(3,minmax(0,1fr))} }
 /* On-Hand Stock */
 .oh-filters{grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr))}
@@ -2867,13 +2867,20 @@ function renderKpis() {
   const inStock = totalInv - activeResv.length;                 // In Stock = Total Inventory − Active Reservations
   const outProducts = stockRows.filter(x => !(Number(x.qty) > 0) && !openResvOf(x.id).some(v => resvState(v) === 'Lapsed'));
   const plural = (n, a, b) => formatCount(n) + ' ' + (n === 1 ? a : b);
+  const typeCount = new Set(stockRows.map(x => String(x.type || '').trim().toLowerCase()).filter(Boolean)).size;
+  const descInStock = stockRows.filter(x => Number(x.qty) > 0).length;
+  const cancelledReq = byStatus(st => st === 'Cancelled');
   const cards = [
-    { label: 'Total Inventory', value: totalInv, subtitle: `All units in the store · ${plural(stockRows.length, 'product', 'products')}`, colors: ['#3b4fe0','#2433b0'], icon: '▦', key: 'nav:inventory' },
+    { label: 'Products', value: typeCount, subtitle: 'Product types (iPhone, Honor, Modem Kit…)', colors: ['#6a5af0','#4632c4'], icon: '◫', key: 'nav:inventory' },
+    { label: 'Total Units', value: descInStock, subtitle: `Item Desc in stock · ${plural(stockRows.length, 'item', 'items')} in all`, colors: ['#3b6ff0','#2448c4'], icon: '▦', key: 'oh:In Stock' },
+    { label: 'Total Inventory', value: totalInv, subtitle: 'All units in the store (Qty + reserved)', colors: ['#3b4fe0','#2433b0'], icon: '▦', key: 'nav:inventory' },
     { label: 'Active Reservations', value: activeResv.length, subtitle: 'Reserved, not yet fulfilled, cancelled or lapsed', colors: ['#f2c230','#d2960c'], icon: '⊞', key: 'nav:reservations' },
     { label: 'Pending Pre-Orders & Requests', value: awaiting.length, subtitle: `${formatCount(awaiting.filter(r => r.requestCategory === 'Latest Request').length)} pre-orders · ${formatCount(awaiting.filter(r => r.requestCategory !== 'Latest Request').length)} standard · ${formatCount(ready.length)} ready`, colors: ['#f6a03a','#dd6f16'], icon: '◷', key: 'status:Awaiting Unit' },
     { label: 'Lapsed Reservations', value: lapsedCount, subtitle: lapsedCount ? 'Not claimed within 48 hours · needs action' : 'Not claimed within 48 hours', colors: ['#b07cf0','#7c48c9'], icon: '⌛', key: 'status:' + (S.statuses.find(st => isLapsed(st)) || 'Expired') },
     { label: 'In Stock', value: inStock, subtitle: 'Total Inventory − Active Reservations', colors: ['#4cc45a','#1f8f34'], icon: '✓', key: 'oh:In Stock' },
-    { label: 'Out of Stock', value: outProducts.length, subtitle: outProducts.length ? plural(outProducts.length, 'product', 'products') + ' with 0 units · needs action' : 'No product at 0 units', colors: ['#f0533e','#c42b1d'], icon: '✕', key: 'oh:Out of Stock' }
+    { label: 'Out of Stock', value: outProducts.length, subtitle: outProducts.length ? plural(outProducts.length, 'product', 'products') + ' with 0 units · needs action' : 'No product at 0 units', colors: ['#f0533e','#c42b1d'], icon: '✕', key: 'oh:Out of Stock' },
+    { label: 'Sold', value: soldUnits(), subtitle: 'Sold reservations + Fulfilled requests', colors: ['#f2b01e','#d07a08'], icon: '★', key: 'ohr:__sold' },
+    { label: 'Cancelled', value: cancelledReq.length, subtitle: 'Cancelled requests', colors: ['#e0566b','#b02a45'], icon: '⊘', key: 'status:Cancelled' },
   ];
   $('kpis').innerHTML = cards.map(k => {
     const active = (k.key.indexOf('status:') === 0 && S.filter.status === k.key.slice(7)) ||
@@ -3478,6 +3485,11 @@ $('kpis').addEventListener('click', function(e) {
 });
 function kpiClick(key) {
   if (key.indexOf('nav:') === 0) return navigateTo(key.slice(4));
+  if (key.indexOf('ohr:') === 0) {          // Inventory filtered by request status (e.g. Sold)
+    const v = key.slice(4);
+    S.oh.rstatus = v; renderOnHand();
+    return navigateTo('inventory');
+  }
   if (key.indexOf('oh:') === 0) {           // Inventory filtered by In Stock / Out of Stock
     const v = key.slice(3);
     $('oh_status').value = v; setOh('status', v);
