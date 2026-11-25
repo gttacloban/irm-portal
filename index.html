@@ -210,6 +210,7 @@ label .req{color:var(--ca)}
 #analyticsSection .rank-panel .top{max-height:560px;overflow:auto}
 @media(max-width:1400px){#analyticsSection.charts-grid{grid-template-columns:1fr 1fr}#analyticsSection .rank-panel{grid-column:1/-1}}
 @media(max-width:920px){#analyticsSection.charts-grid{grid-template-columns:1fr}}
+#ohLoose:not(:empty){margin-bottom:12px;padding:12px;border:1px solid var(--line);border-radius:14px;background:rgba(176,124,240,.05);max-width:100%;overflow:hidden}
 .oh-loose .lg-head{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
 .oh-loose .lg-wrap{display:flex;flex-direction:column;gap:8px;padding-right:6px}
 .lg{border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02)}
@@ -2011,6 +2012,7 @@ body.chat-open .chat-fab{display:none}
               <button type="button" class="date-clear" id="ohAddBtn" hidden onclick="openStockForm()">+ Add New Product</button>
             </div>
           </div>
+          <div id="ohLoose"></div>
           <div class="oh-wrap"><table class="oh-table">
             <thead><tr id="ohHead"></tr></thead>
             <tbody id="ohBody"></tbody>
@@ -3307,12 +3309,15 @@ function renderOnHand() {
     ? resvList().filter(v => soldResvExtra(v) && !ids.has(v.productId) && (!S.oh.rseller || v.seller === S.oh.rseller)) : [];
   const looseN = loose.length + looseSold.length;
   const looseHtml = looseN ? looseSectionHtml(loose, looseSold) : '';
-  $('ohBody').innerHTML = (looseHtml ? `<tr class="oh-loose-row"><td colspan="8">${looseHtml}</td></tr>` : '') + (list.length || looseHtml ? list.map(x => `<tr${x.pending ? ' class="pending"' : ''}>
+  // Shown above the table (not inside it), so it keeps the page width and its own scrollbar is visible.
+  $('ohLoose').innerHTML = looseHtml;
+  $('ohCards').dataset.loose = looseHtml ? '1' : '';
+  $('ohBody').innerHTML = (list.length || looseHtml ? list.map(x => `<tr${x.pending ? ' class="pending"' : ''}>
       <td class="mono">${esc(x.matcode)}</td><td>${esc(x.desc)}</td><td>${esc(x.type)}</td>
       <td>${qtyCell(x)}</td><td>${st(x)}</td><td>${chips(x)}</td><td>${waitCell(x)}</td>
       <td>${actions(x)}</td></tr>`).join('')
     : `<tr><td colspan="8" class="empty">${all.length ? 'No products match the filters.' : (S.admin ? 'No products yet. Press + Add New Product.' : 'No products in stock yet.')}</td></tr>`);
-  $('ohCards').innerHTML = (looseHtml ? `<div class="card oh-card">${looseHtml}</div>` : '') + (list.map(x => `<div class="card oh-card">
+  $('ohCards').innerHTML = (list.map(x => `<div class="card oh-card">
       <div class="top"><div><div class="nm">${esc(x.desc)}</div><div class="small mono">${esc(x.matcode)} · ${esc(x.type)}</div></div>${st(x)}</div>
       <div class="oh-card-row"><span>Qty</span>${qtyCell(x)}</div>
       ${x._resv.length ? `<div class="oh-card-row oh-card-rv"><span>Reserved</span>${chips(x)}</div>` : ''}
