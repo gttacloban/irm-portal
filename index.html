@@ -205,7 +205,11 @@ label .req{color:var(--ca)}
 .oh-loose > b{color:#b07cf0}
 .oh-loose-row td{background:rgba(176,124,240,.06)}
 #colorPicker.locked input,#colorPicker.locked .color-arrow{opacity:.55;cursor:not-allowed}
-.insights-row.single{grid-template-columns:1fr}
+#analyticsSection.charts-grid{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr)}
+#analyticsSection .rank-panel{min-width:0;overflow:hidden}
+#analyticsSection .rank-panel .top{max-height:560px;overflow:auto}
+@media(max-width:1400px){#analyticsSection.charts-grid{grid-template-columns:1fr 1fr}#analyticsSection .rank-panel{grid-column:1/-1}}
+@media(max-width:920px){#analyticsSection.charts-grid{grid-template-columns:1fr}}
 .wq.done{border-color:var(--line);background:transparent}
 .wq-st{font-style:normal;font-size:11px;font-weight:800;margin-right:6px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
@@ -1943,11 +1947,8 @@ body.chat-open .chat-fab{display:none}
             <div class="panel-heading"><div><div class="panel-eyebrow">BREAKDOWN</div><h3>Request Status</h3></div><span class="panel-chip">All requests</span></div>
             <div id="statusChart" class="status-chart"></div>
           </section>
-        </div>
-        <div class="section-heading" id="stockSection"><div><div class="eyebrow">STOCK &amp; DEMAND</div><h2>Stock Insights</h2></div></div>
-        <div class="insights-row single">
-          <section class="panel insight-panel">
-            <div class="panel-heading"><h3>Inventory Stock Ranking</h3><span class="section-icon">↗</span></div>
+          <section class="panel insight-panel rank-panel" id="stockSection" aria-label="Inventory stock ranking">
+            <div class="panel-heading"><div><div class="panel-eyebrow">STOCK &amp; DEMAND</div><h3>Inventory Stock Ranking</h3></div><span class="section-icon">↗</span></div>
             <ul class="top" id="top"></ul>
             <div class="note">Top 10 products in On-Hand Stock by units available. % is compared with the product that has the most units.</div>
           </section>
@@ -3554,6 +3555,7 @@ function navigateTo(area) {
   const navKey = area;
   if (area === 'orders') area = 'requests';
   if (area === 'reservations') area = 'inventory';
+  if (area === 'stock' && window.matchMedia('(max-width:700px)').matches) area = 'analytics';   // the ranking now sits in the charts row
   const targets={dashboard:'dashboardSection',updates:'updatesSection',requests:'requestsSection',stock:'stockSection',analytics:'analyticsSection',inventory:'inventorySection'};
   const section = targets[area] ? area : 'dashboard';
   const titleEl = $('requestsTitle');
