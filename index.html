@@ -2904,16 +2904,16 @@ function renderKpis() {
   const descInStock = stockRows.filter(x => Number(x.qty) > 0).length;
   const cancelledReq = byStatus(st => st === 'Cancelled');
   const cards = [
-    { label: 'Products', value: typeCount, subtitle: 'Product types (iPhone, Honor, Modem Kit…)', colors: ['#6a5af0','#4632c4'], icon: '◫', key: 'nav:inventory' },
-    { label: 'Total Units', value: descInStock, subtitle: `Item Desc in stock · ${plural(stockRows.length, 'item', 'items')} in all`, colors: ['#3b6ff0','#2448c4'], icon: '▦', key: 'oh:In Stock' },
-    { label: 'Total Inventory', value: totalInv, subtitle: 'All units in the store (Qty + reserved)', colors: ['#3b4fe0','#2433b0'], icon: '▦', key: 'nav:inventory' },
+    { label: 'Products', value: typeCount, subtitle: 'Product types (iPhone, Honor, Modem Kit…)', colors: ['#d946ef','#a21caf'], icon: '◫', key: 'nav:inventory' },
+    { label: 'Total Units', value: descInStock, subtitle: `Item Desc in stock · ${plural(stockRows.length, 'item', 'items')} in all`, colors: ['#38bdf8','#0284c7'], icon: '▦', key: 'oh:In Stock' },
+    { label: 'Total Inventory', value: totalInv, subtitle: 'All units in the store (Qty + reserved)', colors: ['#4f46e5','#3730a3'], icon: '▦', key: 'nav:inventory' },
     { label: 'Active Reservations', value: activeResv.length, subtitle: 'Reserved, not yet fulfilled, cancelled or lapsed', colors: ['#f2c230','#d2960c'], icon: '⊞', key: 'nav:reservations' },
     { label: 'Pending Pre-Orders & Requests', value: awaiting.length, subtitle: `${formatCount(awaiting.filter(r => r.requestCategory === 'Latest Request').length)} pre-orders · ${formatCount(awaiting.filter(r => r.requestCategory !== 'Latest Request').length)} standard · ${formatCount(ready.length)} ready`, colors: ['#f6a03a','#dd6f16'], icon: '◷', key: 'status:Awaiting Unit' },
     { label: 'Lapsed Reservations', value: lapsedCount, subtitle: lapsedCount ? 'Not claimed within 48 hours · needs action' : 'Not claimed within 48 hours', colors: ['#b07cf0','#7c48c9'], icon: '⌛', key: 'status:' + (S.statuses.find(st => isLapsed(st)) || 'Expired') },
     { label: 'In Stock', value: inStock, subtitle: 'Total Inventory − Active Reservations', colors: ['#4cc45a','#1f8f34'], icon: '✓', key: 'oh:In Stock' },
     { label: 'Out of Stock', value: outProducts.length, subtitle: outProducts.length ? plural(outProducts.length, 'product', 'products') + ' with 0 units · needs action' : 'No product at 0 units', colors: ['#f0533e','#c42b1d'], icon: '✕', key: 'oh:Out of Stock' },
-    { label: 'Sold', value: soldUnits(), subtitle: 'Sold reservations + Fulfilled requests', colors: ['#f2b01e','#d07a08'], icon: '★', key: 'ohr:__sold' },
-    { label: 'Cancelled', value: cancelledReq.length, subtitle: 'Cancelled requests', colors: ['#e0566b','#b02a45'], icon: '⊘', key: 'status:Cancelled' },
+    { label: 'Sold', value: soldUnits(), subtitle: 'Sold reservations + Fulfilled requests', colors: ['#14b8a6','#0f766e'], icon: '★', key: 'ohr:__sold' },
+    { label: 'Cancelled', value: cancelledReq.length, subtitle: 'Cancelled requests', colors: ['#64748b','#334155'], icon: '⊘', key: 'status:Cancelled' },
   ];
   $('kpis').innerHTML = cards.map(k => {
     const active = (k.key.indexOf('status:') === 0 && S.filter.status === k.key.slice(7)) ||
@@ -3173,7 +3173,7 @@ function ohLooseRequests() {
       !(r.productId && ids.has(r.productId)) && !ohSuggestOf(r))
     .sort((a, b) => String(b.date).localeCompare(String(a.date)));
 }
-const ohStColor = st => ({ fulfilled: '#4cc45a', cancelled: '#f0533e', 'awaiting unit': '#f6a03a', reserved: '#f2c230' })[String(st).toLowerCase()] || (isLapsed(st) ? '#b07cf0' : 'var(--muted)');
+const ohStColor = st => ({ fulfilled: '#2dd4bf', cancelled: '#94a3b8', 'awaiting unit': '#f6a03a', reserved: '#f2c230' })[String(st).toLowerCase()] || (isLapsed(st) ? '#b07cf0' : 'var(--muted)');
 // Suggested product of unlinked requests, worked out once per data change.
 let ohSugCache = { key: '', map: {} };
 function ohSuggestOf(r) {
@@ -3582,8 +3582,8 @@ function renderCharts() {
   const STATUS_CHART_COLORS = {
     'awaiting unit': '#f6a03a', 'awaiting handset': '#f6a03a',   // Awaiting Units tile (orange)
     'for release': '#f2c230', 'reserved': '#f2c230',              // Active Reservations tile (yellow)
-    'fulfilled': '#4cc45a', 'sold / fulfilled': '#4cc45a',          // Sold = Fulfilled requests + sold reservations (green)
-    'cancelled': '#f0533e',                                       // Cancelled tile (red)
+    'fulfilled': '#14b8a6', 'sold / fulfilled': '#14b8a6',          // Sold tile (teal)
+    'cancelled': '#64748b',                                       // Cancelled tile (slate)
     'lapsed': '#b07cf0', 'expired': '#b07cf0',                    // Lapsed tile (purple)
     'available units': '#f2c230'                                  // Available Units tile (yellow)
   };
