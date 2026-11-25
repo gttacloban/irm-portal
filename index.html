@@ -1951,7 +1951,7 @@ body.chat-open .chat-fab{display:none}
           <section class="panel insight-panel rank-panel" id="stockSection" aria-label="Top 10 products">
             <div class="panel-heading"><div><div class="panel-eyebrow">STOCK &amp; DEMAND</div><h3>Top 10 Products</h3></div><span class="section-icon">↗</span></div>
             <ul class="top" id="top"></ul>
-            <div class="note">Top 10 products in On-Hand Stock by units available. % is compared with the product that has the most units.</div>
+            <div class="note">Top 10 product types by units in stock. % is compared with the type that has the most units. Tap one to see it in Inventory.</div>
           </section>
         </div>
         <div class="section-heading" id="inventorySection"><div><div class="eyebrow">ON-HAND STOCK</div><h2>Inventory &amp; Reservations</h2></div>
@@ -3612,21 +3612,29 @@ function navigateTo(area) {
 })();
 
 function renderTop() {
-  // Inventory Stock Ranking: On-Hand Stock products with the most units available.
-  const list = (S.onHand || []).filter(x => Number(x.qty) > 0)
-    .slice().sort((a, b) => b.qty - a.qty || a.desc.localeCompare(b.desc)).slice(0, 10);
+  // Top 10 Products: the product types (iPhone, Honor, Samsung… Modem Kit, Simcards…) with the
+  // most units in stock. % is compared with the type that has the most units.
+  const by = new Map();
+  (S.onHand || []).forEach(x => {
+    const t = String(x.type || 'Other').trim() || 'Other';
+    const o = by.get(t) || { type: t, qty: 0, items: 0 };
+    o.qty += Math.max(0, Number(x.qty) || 0); if (Number(x.qty) > 0) o.items++;
+    by.set(t, o);
+  });
+  const list = [...by.values()].filter(o => o.qty > 0).sort((a, b) => b.qty - a.qty || a.type.localeCompare(b.type)).slice(0, 10);
   const max = list.length ? list[0].qty : 1;
   const BAR = ['#22c55e', '#f5b70a', '#ef4444', '#ec4899', '#7c3aed', '#3b82f6', '#14b8a6', '#f97316', '#06b6d4', '#a3a3a3'];
-  $('top').innerHTML = list.length ? list.map((x, i) => {
-    const pct = Math.round(x.qty / max * 100);
+  $('top').innerHTML = list.length ? list.map((o, i) => {
+    const pct = Math.round(o.qty / max * 100);
     const c = BAR[i % BAR.length];
-    return `<li class="tbar-row" title="${esc(x.desc)} · ${esc(x.matcode)} · ${x.qty} unit(s) available">
+    return `<li class="tbar-row" role="button" tabindex="0" style="cursor:pointer" title="Show ${esc(o.type)} in Inventory"
+        onclick="S.oh.type='${esc(o.type)}';$('oh_type').value='${esc(o.type)}';renderOnHand();navigateTo('inventory')">
       <span class="tbar-rank">${i + 1}</span>
       <span class="tbar-body">
-        <span class="tbar-name">${esc(x.desc)}</span>
+        <span class="tbar-name">${esc(o.type)}</span>
         <span class="tbar-line"><span class="tbar-track" aria-hidden="true"><span class="tbar-fill" style="width:${Math.max(3, pct)}%;background:${c}"></span></span>
           <span class="tbar-num" style="color:${c}">${pct}%</span></span>
-        <span class="tbar-sub">${x.qty} ${x.qty === 1 ? 'unit' : 'units'} available</span>
+        <span class="tbar-sub">${formatCount(o.qty)} ${o.qty === 1 ? 'unit' : 'units'} in stock · ${o.items} ${o.items === 1 ? 'item' : 'items'}</span>
       </span></li>`;
   }).join('')
     : '<li style="color:var(--muted)">No units in On-Hand Stock yet</li>';
