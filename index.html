@@ -1618,9 +1618,14 @@ a.nav-item:hover{color:#274ebd}
 .oh-table td.empty{text-align:center;color:var(--muted);padding:22px}
 /* The table always fits the card: fixed column shares, long text and chips wrap inside their cell. */
 .oh-table{table-layout:fixed}
-.oh-table th:nth-child(1){width:6%}.oh-table th:nth-child(2){width:15%}.oh-table th:nth-child(3){width:6%}
-.oh-table th:nth-child(4){width:10%}.oh-table th:nth-child(5){width:9%}.oh-table th:nth-child(6){width:28%}
-.oh-table th:nth-child(7){width:20%}.oh-table th:nth-child(8){width:6%}
+/* Fixed pixel widths for the short columns (they never overlap the next one);
+   Item Desc / Reserved / Waiting share the rest, Reserved getting the most. */
+.oh-table th:nth-child(1){width:72px}.oh-table th:nth-child(3){width:78px}.oh-table th:nth-child(4){width:122px}
+.oh-table th:nth-child(5){width:118px}.oh-table th:nth-child(8){width:72px}
+.oh-table th:nth-child(2){width:21%}.oh-table th:nth-child(6){width:45%}.oh-table th:nth-child(7){width:34%}
+.oh-table{min-width:940px}
+.oh-table td:nth-child(5){padding-right:12px}
+.oh-table .oh-st{display:inline-block;max-width:100%}
 /* "(+1 lapsed)" goes under the Qty buttons so it never runs into the Status column. */
 .oh-table td:nth-child(4) .oh-qty{flex-wrap:wrap}
 .oh-table td:nth-child(4) .oh-lap{display:block;flex-basis:100%;text-align:center;margin:2px 0 0}
