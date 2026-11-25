@@ -211,7 +211,7 @@ label .req{color:var(--ca)}
 @media(max-width:1400px){#analyticsSection.charts-grid{grid-template-columns:1fr 1fr}#analyticsSection .rank-panel{grid-column:1/-1}}
 @media(max-width:920px){#analyticsSection.charts-grid{grid-template-columns:1fr}}
 .oh-loose .lg-head{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
-.oh-loose .lg-wrap{max-height:460px;overflow:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px}
+.oh-loose .lg-wrap{display:flex;flex-direction:column;gap:8px;padding-right:6px}
 .lg{border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02)}
 .lg summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;list-style:none}
 .lg summary::-webkit-details-marker{display:none}
@@ -224,8 +224,12 @@ label .req{color:var(--ca)}
 .lg-table{width:100%;border-collapse:collapse;font-size:13px}
 .lg-table th{text-align:left;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 12px;border-top:1px solid var(--line)}
 .oh-loose .lg-table td{padding:7px 12px;border-top:1px solid var(--line);white-space:nowrap;background:transparent;height:auto;vertical-align:middle}
-.lg-scroll{max-height:300px;overflow:auto}
-.lg-scroll thead th{position:sticky;top:0;z-index:1;background:var(--panel,#1c2a44)}
+.lg-scroll{overflow-x:auto}
+.oh-loose .lg-wrap{max-height:420px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#6b7fae transparent}
+.oh-loose .lg-wrap::-webkit-scrollbar{width:10px}
+.oh-loose .lg-wrap::-webkit-scrollbar-thumb{background:#6b7fae;border-radius:10px;border:2px solid transparent;background-clip:padding-box}
+.oh-loose .lg-wrap::-webkit-scrollbar-track{background:rgba(127,140,170,.12);border-radius:10px}
+.lg[open] > summary{position:sticky;top:0;z-index:2;background:#24314f;border-radius:12px 12px 0 0}
 .lg-table th:nth-child(1){width:110px}.lg-table th:nth-child(3){width:120px}.lg-table th:nth-child(4){width:120px}.lg-table th:nth-child(5){width:110px}.lg-table th:nth-child(6){width:120px}
 .lg-cat{color:var(--muted);font-size:12.5px}
 .lg-table tbody tr{cursor:pointer}
