@@ -3164,6 +3164,9 @@ function looseSectionHtml(loose, looseSold) {
         <tbody>${g.rows.map(row).join('')}</tbody></table></div></details>`).join('')}${soldBlock}</div></div>`;
 }
 function ohLooseRequests() {
+  // A product filter (Type, Stock status, Reserved, Resv dates) means "show these products":
+  // requests with no product can't match it, so the section is hidden.
+  if (S.oh.type || S.oh.status || S.oh.to || S.oh.from || S.oh.toDate) return [];
   const q = norm(S.oh.q);
   const ids = new Set(ohList().map(p => p.id));
   // With no filter, the open ones (Awaiting / Lapsed / Reserved) always show, so no customer is hidden.
@@ -3179,8 +3182,10 @@ let ohSugCache = { key: '', map: {} };
 function ohSuggestOf(r) {
   const key = S.rows.length + '|' + ohListKey;
   if (ohSugCache.key !== key) ohSugCache = { key: key, map: {} };
-  if (!(r.id in ohSugCache.map)) ohSugCache.map[r.id] = suggestProduct(r) || '';
-  return ohSugCache.map[r.id];
+  const rk = r.handset + '|' + r.color;                    // re-check when the request's model or color changes
+  const c = ohSugCache.map[r.id];
+  if (!c || c.k !== rk) ohSugCache.map[r.id] = { k: rk, v: suggestProduct(r) || '' };
+  return ohSugCache.map[r.id].v;
 }
 function ohResvShown(x) {
   const cq = ohCustQ(x.id);
@@ -3309,7 +3314,7 @@ function renderOnHand() {
   const loose = ohLooseRequests();
   const ids = new Set(all.map(p => p.id));
   const looseSold = S.oh.rstatus === '__sold' && !S.oh.rcat && !S.oh.rtype && !S.oh.q
-    ? resvList().filter(v => soldResvExtra(v) && !ids.has(v.productId) && (!S.oh.rseller || v.seller === S.oh.rseller)) : [];
+    ? resvList().filter(v => !S.oh.type && !S.oh.status && !S.oh.to && soldResvExtra(v) && !ids.has(v.productId) && (!S.oh.rseller || v.seller === S.oh.rseller)) : [];
   const looseN = loose.length + looseSold.length;
   const looseHtml = looseN ? looseSectionHtml(loose, looseSold) : '';
   // Shown above the table (not inside it), so it keeps the page width and its own scrollbar is visible.
