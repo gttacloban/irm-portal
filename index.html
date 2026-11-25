@@ -3582,18 +3582,23 @@ function renderCharts() {
   const STATUS_CHART_COLORS = {
     'awaiting unit': '#f6a03a', 'awaiting handset': '#f6a03a',   // Awaiting Units tile (orange)
     'for release': '#f2c230', 'reserved': '#f2c230',              // Active Reservations tile (yellow)
-    'fulfilled': '#4cc45a',                                       // Fulfilled tile (green)
+    'fulfilled': '#4cc45a', 'sold / fulfilled': '#4cc45a',          // Sold = Fulfilled requests + sold reservations (green)
     'cancelled': '#f0533e',                                       // Cancelled tile (red)
     'lapsed': '#b07cf0', 'expired': '#b07cf0',                    // Lapsed tile (purple)
     'available units': '#f2c230'                                  // Available Units tile (yellow)
   };
   const spareColors = ['#22c4c9', '#8b95a8', '#3b4fe0', '#8fd13a'];
   const colorOf = (s, i) => STATUS_CHART_COLORS[String(s).trim().toLowerCase()] || spareColors[i % spareColors.length];
-  const ordered = [...new Set([...S.statuses.map(statusLabel), ...S.rows.map(r=>statusLabel(r.status))])];
+  // Fulfilled is shown together with Sold: Fulfilled requests + units sold through a reservation
+  // that is not already a Fulfilled request (old seller reservations, archived requests).
+  const lbl = st => norm(st) === 'fulfilled' ? 'Sold / Fulfilled' : statusLabel(st);
+  const ordered = [...new Set([...S.statuses.map(lbl), ...S.rows.map(r=>lbl(r.status))])];
   ordered.forEach(s => statusCounts.set(s,0));
-  S.rows.forEach(r => statusCounts.set(statusLabel(r.status),(statusCounts.get(statusLabel(r.status)) || 0) + 1));
+  S.rows.forEach(r => statusCounts.set(lbl(r.status),(statusCounts.get(lbl(r.status)) || 0) + 1));
+  const soldExtra = resvList().filter(soldResvExtra).length;
+  statusCounts.set('Sold / Fulfilled', (statusCounts.get('Sold / Fulfilled') || 0) + soldExtra);
   const values = [...statusCounts.entries()].filter(([,n])=>n>0);
-  const total = S.rows.length;
+  const total = S.rows.length + soldExtra;
   let pct=0;
   const stops=values.map(([,value],i)=>{
     const from=pct; pct+=(value/total)*100;
