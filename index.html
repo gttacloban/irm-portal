@@ -205,6 +205,7 @@ label .req{color:var(--ca)}
 .oh-loose > b{color:#b07cf0}
 .oh-loose-row td{background:rgba(176,124,240,.06)}
 #colorPicker.locked input,#colorPicker.locked .color-arrow{opacity:.55;cursor:not-allowed}
+.insights-row.single{grid-template-columns:1fr}
 .wq.done{border-color:var(--line);background:transparent}
 .wq-st{font-style:normal;font-size:11px;font-weight:800;margin-right:6px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
@@ -1944,16 +1945,7 @@ body.chat-open .chat-fab{display:none}
           </section>
         </div>
         <div class="section-heading" id="stockSection"><div><div class="eyebrow">STOCK &amp; DEMAND</div><h2>Stock Insights</h2></div></div>
-        <div class="insights-row">
-          <section class="panel insight-panel">
-            <div class="panel-heading"><h3>In Stock</h3>
-              <div class="available-panel-head-actions">
-                <span class="section-icon">◈</span>
-              </div>
-            </div>
-            <ul class="top available-units-list" id="avail" aria-live="polite"></ul>
-            <div class="avail-total" id="availTotal"></div>
-          </section>
+        <div class="insights-row single">
           <section class="panel insight-panel">
             <div class="panel-heading"><h3>Inventory Stock Ranking</h3><span class="section-icon">↗</span></div>
             <ul class="top" id="top"></ul>
@@ -4720,6 +4712,7 @@ function renderAvail() {
   // Old Available Units (Hold Expired / spare rows from before the merge) are not shown
   // or moved any more: the panel shows the Inventory stock only.
   void oldHtml; void availN;
+  if (!$('avail')) return;       // the In Stock card was removed from the Dashboard
   $('avail').innerHTML = `<li class="avail-group"><span>In Stock</span><b>${formatCount(stockN)}</b></li>` + stockHtml;
   const tot = $('availTotal');
   if (tot) tot.innerHTML = `<span>Total</span><b>${formatCount(stockN)}</b><small>All units in Inventory (On-Hand Stock)</small>`;
