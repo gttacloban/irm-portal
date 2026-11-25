@@ -3047,7 +3047,7 @@ const ohReqFilterOn = () => !!(S.oh.rcat || S.oh.rstatus || S.oh.rseller || S.oh
 function ohReqMatch(r) {
   const f = S.oh;
   return !r.spare && !r.pending &&
-    (!f.rstatus || statusMatches(r, f.rstatus)) &&
+    (!f.rstatus || (f.rstatus === '__sold' ? r.status === 'Fulfilled' : statusMatches(r, f.rstatus))) &&
     (!f.rseller || r.seller === f.rseller) &&
     (!f.rtype || r.type === f.rtype) &&
     (!f.rcat || (f.rcat === 'orders' ? r.requestCategory !== 'Reservation' : r.requestCategory === f.rcat));
@@ -3072,7 +3072,11 @@ function ohWaitShown(pid) {
     (r.productId ? r.productId === pid : ohSuggestOf(r) === pid))
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))
     .map(r => ({ r: r, n: -1 }));
-  return w.concat(more);
+  // Sold filter: also the units sold through a reservation that has no customer request (old seller reservations).
+  const soldResv = S.oh.rstatus === '__sold' && !S.oh.rcat && !S.oh.rtype && !cq
+    ? resvList().filter(v => v.productId === pid && v.status === 'Sold' && !v.po && (!S.oh.rseller || v.seller === S.oh.rseller))
+        .map(v => ({ r: null, v: v, n: -2 })) : [];
+  return w.concat(more, soldResv);
 }
 // Sold = reservations marked Sold + Fulfilled requests (units). A Fulfilled request that was
 // sold through a reservation is counted once.
@@ -3156,7 +3160,7 @@ function renderOnHand() {
   const keep = (el, html, v) => { el.innerHTML = html; el.value = v; };
   keep($('oh_type'), '<option value="">All Type</option>' + stockTypes().map(t => `<option>${esc(t)}</option>`).join(''), S.oh.type);
   // Request filters (same as Standard & Pre-Orders): show products whose linked requests match.
-  keep($('oh_rstatus'), '<option value="">All Statuses</option>' + (S.statuses || []).map(v => `<option value="${esc(v)}">${esc(statusLabel(v))}</option>`).join(''), S.oh.rstatus || '');
+  keep($('oh_rstatus'), '<option value="">All Statuses</option>' + (S.statuses || []).map(v => `<option value="${esc(v)}">${esc(statusLabel(v))}</option>`).join('') + '<option value="__sold">Sold (Sold + Fulfilled)</option>', S.oh.rstatus || '');
   keep($('oh_rseller'), '<option value="">All Sellers</option>' + (S.sellers || []).map(v => `<option>${esc(v)}</option>`).join(''), S.oh.rseller || '');
   keep($('oh_rtype'), '<option value="">All Types</option>' + (S.types || []).map(v => `<option>${esc(v)}</option>`).join(''), S.oh.rtype || '');
   $('oh_rcat').value = S.oh.rcat || '';
@@ -3182,7 +3186,7 @@ function renderOnHand() {
     ['Out of Stock', all.filter(x => !x.qty).length, '✕', '#f0533e', '#c42b1d', ['status', 'Out of Stock'], 'Item Desc'],
     ['Reserved', open.length - lapsed.length, '⊞', '#22a7e8', '#0d76b8', ['to', '__any'], 'Qty'],
     ['Lapsed', lapsed.length + lapsedOld.length, '⌛', '#b07cf0', '#7c48c9', ['rstatus', lapStatus], 'Requests'],
-    ['Sold', soldUnits(), '★', '#f2b01e', '#d07a08', ['history', ''], 'Sold + Fulfilled']
+    ['Sold', soldUnits(), '★', '#f2b01e', '#d07a08', ['rstatus', '__sold'], 'Sold + Fulfilled']
   ];
   $('ohSummary').innerHTML = tiles.map(([l, v, ic, c1, c2, f, unit]) => {
     const on = f && S.oh[f[0]] === f[1];
@@ -3212,7 +3216,9 @@ function renderOnHand() {
     const w = ohWaitShown(x.id);
     if (!w.length) return '—';
     const cap = S.oh.rstatus ? w.length : 3;
-    return `<div class="wq-list">${w.slice(0, cap).map(({ r, n: i }) => i < 0
+    return `<div class="wq-list">${w.slice(0, cap).map(({ r, v, n: i }) => i === -2
+      ? `<span class="wq done" title="Sold through a reservation${v.closedAt ? ' on ' + esc(new Date(v.closedAt).toLocaleDateString('en-US', { timeZone: PH_TZ, month: 'short', day: 'numeric' })) : ''}"><em class="wq-st" style="color:#f2b01e">Sold</em>${esc(v.seller || '—')} <span class="small">· no PO · ${esc(v.resvDate || '')}</span></span>`
+      : i < 0
       ? `<span class="wq done" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.id)}',this)">
         <em class="wq-st" style="color:${ohStColor(shownStatus(r))}">${esc(statusLabel(shownStatus(r)))}</em>${esc(r.id)} · ${esc(custName(r))}${S.admin && !r.productId && !['Fulfilled', 'Cancelled'].includes(r.status)
           ? `<button type="button" class="go wq-link" title="Not linked yet. Link ${esc(r.id)} to ${esc(x.desc)} to put it in the queue" onclick="event.stopPropagation();sendLinks([{id:'${esc(r.id)}',productId:'${esc(x.id)}'}])">Link</button>` : ''}</span>`
