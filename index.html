@@ -223,12 +223,16 @@ label .req{color:var(--ca)}
 .lg-count + .lg-count::before{content:'· ';color:var(--muted)}
 .lg-table{width:100%;border-collapse:collapse;font-size:13px}
 .lg-table th{text-align:left;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 12px;border-top:1px solid var(--line)}
-.lg-table td{padding:7px 12px;border-top:1px solid var(--line);white-space:nowrap}
+.oh-loose .lg-table td{padding:7px 12px;border-top:1px solid var(--line);white-space:nowrap;background:transparent;height:auto;vertical-align:middle}
+.lg-scroll{max-height:300px;overflow:auto}
+.lg-scroll thead th{position:sticky;top:0;z-index:1;background:var(--panel,#1c2a44)}
+.lg-table th:nth-child(1){width:110px}.lg-table th:nth-child(3){width:120px}.lg-table th:nth-child(4){width:120px}.lg-table th:nth-child(5){width:110px}.lg-table th:nth-child(6){width:120px}
+.lg-cat{color:var(--muted);font-size:12.5px}
 .lg-table tbody tr{cursor:pointer}
 .lg-table tbody tr:hover td{background:rgba(127,140,170,.08)}
 .lg-table .lg-name{font-weight:700;white-space:normal}
 .lg-st{display:inline-block;min-width:92px;text-align:center;font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;color:var(--c);background:color-mix(in srgb,var(--c) 16%,transparent);border:1px solid color-mix(in srgb,var(--c) 35%,transparent)}
-@media(max-width:700px){.lg-table th:nth-child(4),.lg-table td:nth-child(4),.lg-table th:nth-child(6),.lg-table td:nth-child(6){display:none}}
+@media(max-width:700px){.lg-table th:nth-child(3),.lg-table td:nth-child(3),.lg-table th:nth-child(5),.lg-table td:nth-child(5){display:none}}
 .wq.done{border-color:var(--line);background:transparent}
 .wq-st{font-style:normal;font-size:11px;font-weight:800;margin-right:6px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
@@ -3137,20 +3141,20 @@ function looseSectionHtml(loose, looseSold) {
       .map(([st, n]) => `<span class="lg-count" style="color:${ohStColor(st)}">${n} ${esc(statusLabel(st))}</span>`).join(''); };
   const row = r => { const st = shownStatus(r);
     return `<tr role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.id)}',this)">
-      <td><span class="lg-st" style="--c:${ohStColor(st)}">${esc(statusLabel(st))}</span></td>
       <td class="mono">${esc(r.id)}</td><td class="lg-name">${esc(custName(r))}</td>
       <td>${esc(r.seller || '')}</td><td class="mono">${esc(r.date || '')}</td>
-      <td class="small">${esc(r.requestCategory === 'Latest Request' ? 'Pre-Order' : r.requestCategory === 'Standard Request' ? 'Standard' : (r.requestCategory || ''))}</td></tr>`; };
+      <td class="lg-cat">${esc(r.requestCategory === 'Latest Request' ? 'Pre-Order' : r.requestCategory === 'Standard Request' ? 'Standard' : (r.requestCategory || ''))}</td>
+      <td><span class="lg-st" style="--c:${ohStColor(st)}">${esc(statusLabel(st))}</span></td></tr>`; };
   const soldBlock = looseSold.length ? `<details class="lg" open><summary><span class="lg-title">Sold · product deleted</span><span class="lg-count" style="color:#f2b01e">${looseSold.length} Sold</span></summary>
-      <table class="lg-table"><tbody>${looseSold.map(v => `<tr><td><span class="lg-st" style="--c:#f2b01e">Sold</span></td><td class="mono">${esc(v.po || '—')}</td>
-        <td class="lg-name">${esc(v.desc || '')}</td><td>${esc(v.seller || '')}</td><td class="mono">${esc(v.resvDate || '')}</td><td></td></tr>`).join('')}</tbody></table></details>` : '';
+      <div class="lg-scroll"><table class="lg-table"><tbody>${looseSold.map(v => `<tr><td class="mono">${esc(v.po || '—')}</td><td class="lg-name">${esc(v.desc || '')}</td><td>${esc(v.seller || '')}</td>
+        <td class="mono">${esc(v.resvDate || '')}</td><td class="lg-cat"></td><td><span class="lg-st" style="--c:#f2b01e">Sold</span></td></tr>`).join('')}</tbody></table></div></details>` : '';
   return `<div class="oh-loose">
     <div class="lg-head"><b>Not linked to a product (${loose.length + looseSold.length})</b>
       <span class="small">Grouped by model. Tap a customer to open the card, then Link the right product, or add the product to Inventory.</span></div>
     <div class="lg-wrap">${list.map(g => `<details class="lg"${g.open ? ' open' : ''}>
       <summary><span class="lg-title">${esc(g.name)}</span><span class="lg-total">${g.rows.length}</span>${count(g.rows)}</summary>
-      <table class="lg-table"><thead><tr><th>Status</th><th>PO #</th><th>Customer</th><th>Seller</th><th>Date</th><th>Category</th></tr></thead>
-        <tbody>${g.rows.map(row).join('')}</tbody></table></details>`).join('')}${soldBlock}</div></div>`;
+      <div class="lg-scroll"><table class="lg-table"><thead><tr><th>PO #</th><th>Customer</th><th>Seller</th><th>Date</th><th>Category</th><th>Status</th></tr></thead>
+        <tbody>${g.rows.map(row).join('')}</tbody></table></div></details>`).join('')}${soldBlock}</div></div>`;
 }
 function ohLooseRequests() {
   const q = norm(S.oh.q);
