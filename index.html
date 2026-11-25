@@ -1618,9 +1618,12 @@ a.nav-item:hover{color:#274ebd}
 .oh-table td.empty{text-align:center;color:var(--muted);padding:22px}
 /* The table always fits the card: fixed column shares, long text and chips wrap inside their cell. */
 .oh-table{table-layout:fixed}
-.oh-table th:nth-child(1){width:7%}.oh-table th:nth-child(2){width:17%}.oh-table th:nth-child(3){width:7%}
-.oh-table th:nth-child(4){width:10%}.oh-table th:nth-child(5){width:10%}.oh-table th:nth-child(6){width:22%}
-.oh-table th:nth-child(7){width:21%}.oh-table th:nth-child(8){width:6%}
+.oh-table th:nth-child(1){width:6%}.oh-table th:nth-child(2){width:15%}.oh-table th:nth-child(3){width:6%}
+.oh-table th:nth-child(4){width:10%}.oh-table th:nth-child(5){width:9%}.oh-table th:nth-child(6){width:28%}
+.oh-table th:nth-child(7){width:20%}.oh-table th:nth-child(8){width:6%}
+/* "(+1 lapsed)" goes under the Qty buttons so it never runs into the Status column. */
+.oh-table td:nth-child(4) .oh-qty{flex-wrap:wrap}
+.oh-table td:nth-child(4) .oh-lap{display:block;flex-basis:100%;text-align:center;margin:2px 0 0}
 .oh-table td{overflow-wrap:anywhere}
 .oh-table button,.oh-table .oh-st,.oh-table .wq-st,.oh-table .wq-lap,.oh-table .wq i,.lg-st,.oh-card .wq-st{overflow-wrap:normal;word-break:normal;white-space:nowrap;flex:0 0 auto}
 .oh-table .wq{overflow-wrap:break-word}
@@ -3311,7 +3314,7 @@ function renderOnHand() {
   const first = (S.oh.page - 1) * S.oh.size;
   const list = filteredAll.slice(first, first + S.oh.size);
   const qtyCell = x => S.admin
-    ? `<span class="oh-qty"><button type="button" class="oh-step" title="Minus 1 (sold)" onclick="stockQty('${esc(x.id)}',-1)" ${x.qty ? '' : 'disabled'}>−</button><b>${x.qty}</b>${lapTag(x)}<button type="button" class="oh-step" title="Add 1 (received)" onclick="stockQty('${esc(x.id)}',1)">+</button></span>`
+    ? `<span class="oh-qty"><button type="button" class="oh-step" title="Minus 1 (sold)" onclick="stockQty('${esc(x.id)}',-1)" ${x.qty ? '' : 'disabled'}>−</button><b>${x.qty}</b><button type="button" class="oh-step" title="Add 1 (received)" onclick="stockQty('${esc(x.id)}',1)">+</button>${lapTag(x)}</span>`
     : `<b>${x.qty}</b>${lapTag(x)}`;
   const actions = x => S.admin ? `<span class="oh-actions">
       <button class="icon" title="Edit" onclick="openStockForm('${esc(x.id)}')">✎</button>
