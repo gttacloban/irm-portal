@@ -3074,6 +3074,15 @@ function ohWaitShown(pid) {
     .map(r => ({ r: r, n: -1 }));
   return w.concat(more);
 }
+// Sold = reservations marked Sold + Fulfilled requests (units). A Fulfilled request that was
+// sold through a reservation is counted once.
+function soldUnits() {
+  const sold = resvList().filter(v => v.status === 'Sold');
+  const viaResv = new Set(sold.map(v => v.po).filter(Boolean));
+  const fulfilled = S.rows.filter(r => !r.spare && r.status === 'Fulfilled' && !viaResv.has(r.id))
+    .reduce((n, r) => n + Math.max(1, Number(r.qty) || 1), 0);
+  return sold.length + fulfilled;
+}
 function ohLooseRequests() {
   const q = norm(S.oh.q);
   if (!ohReqFilterOn() && !q) return [];
@@ -3173,7 +3182,7 @@ function renderOnHand() {
     ['Out of Stock', all.filter(x => !x.qty).length, '✕', '#f0533e', '#c42b1d', ['status', 'Out of Stock'], 'Item Desc'],
     ['Reserved', open.length - lapsed.length, '⊞', '#22a7e8', '#0d76b8', ['to', '__any'], 'Qty'],
     ['Lapsed', lapsed.length + lapsedOld.length, '⌛', '#b07cf0', '#7c48c9', ['rstatus', lapStatus], 'Requests'],
-    ['Sold', resvList().filter(r => r.status === 'Sold').length, '★', '#f2b01e', '#d07a08', ['history', ''], 'Qty']
+    ['Sold', soldUnits(), '★', '#f2b01e', '#d07a08', ['history', ''], 'Sold + Fulfilled']
   ];
   $('ohSummary').innerHTML = tiles.map(([l, v, ic, c1, c2, f, unit]) => {
     const on = f && S.oh[f[0]] === f[1];
