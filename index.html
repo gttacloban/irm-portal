@@ -1787,6 +1787,7 @@ body.chat-open .chat-fab{display:none}
 /* Stock Inventory */
 .inventory-panel{margin-bottom:20px}
 .inv-summary{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin-bottom:12px}
+#ohSummary[hidden]{display:none!important}
 @media (max-width:1100px){.inv-summary{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .inv-stat{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
 .inv-stat b{font-size:22px;font-variant-numeric:tabular-nums}
@@ -1947,8 +1948,8 @@ body.chat-open .chat-fab{display:none}
             <div class="panel-heading"><div><div class="panel-eyebrow">BREAKDOWN</div><h3>Request Status</h3></div><span class="panel-chip">All requests</span></div>
             <div id="statusChart" class="status-chart"></div>
           </section>
-          <section class="panel insight-panel rank-panel" id="stockSection" aria-label="Inventory stock ranking">
-            <div class="panel-heading"><div><div class="panel-eyebrow">STOCK &amp; DEMAND</div><h3>Inventory Stock Ranking</h3></div><span class="section-icon">↗</span></div>
+          <section class="panel insight-panel rank-panel" id="stockSection" aria-label="Top 10 products">
+            <div class="panel-heading"><div><div class="panel-eyebrow">STOCK &amp; DEMAND</div><h3>Top 10 Products</h3></div><span class="section-icon">↗</span></div>
             <ul class="top" id="top"></ul>
             <div class="note">Top 10 products in On-Hand Stock by units available. % is compared with the product that has the most units.</div>
           </section>
@@ -1956,7 +1957,7 @@ body.chat-open .chat-fab{display:none}
         <div class="section-heading" id="inventorySection"><div><div class="eyebrow">ON-HAND STOCK</div><h2>Inventory &amp; Reservations</h2></div>
           <span class="heading-helper" id="ohHelper">Search, filter and sort the stock in the store</span></div>
         <section class="panel inventory-panel" aria-label="On-hand stock, inventory and reservations">
-          <div class="inv-summary" id="ohSummary"></div>
+          <div class="inv-summary" id="ohSummary" hidden></div>
           <div class="filters oh-filters">
             <input id="oh_q" placeholder="Search Matcode, Item Desc, customer, mobile, PO #, WL #…" aria-label="Search Matcode or Item Desc" oninput="setOh('q',this.value)">
             <select id="oh_type" aria-label="Filter type" onchange="setOh('type',this.value)"></select>
