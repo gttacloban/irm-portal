@@ -208,8 +208,17 @@ label .req{color:var(--ca)}
 #analyticsSection.charts-grid{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr)}
 #analyticsSection .rank-panel{min-width:0;overflow:hidden}
 #analyticsSection .rank-panel .top{max-height:560px;overflow:auto}
-@media(max-width:1400px){#analyticsSection.charts-grid{grid-template-columns:1fr 1fr}#analyticsSection .rank-panel{grid-column:1/-1}}
-@media(max-width:920px){#analyticsSection.charts-grid{grid-template-columns:1fr}}
+/* The three cards stay side by side on every screen wider than a phone. */
+@media(min-width:701px){#analyticsSection.charts-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}#analyticsSection .rank-panel{grid-column:auto}}
+@media(max-width:700px){#analyticsSection.charts-grid{grid-template-columns:1fr}}
+@media(min-width:701px) and (max-width:1300px){
+  #analyticsSection .panel{padding:16px}
+  #analyticsSection h3{font-size:15px}
+  #analyticsSection .sm-range button{padding:4px 7px;font-size:11px}
+  #analyticsSection .tp-chart{gap:3px;padding-left:18px}
+  #analyticsSection .tp-name{font-size:9.5px}
+  #analyticsSection .tp-pct{font-size:10px}
+}
 #ohLoose:not(:empty){margin-bottom:12px;padding:12px;border:1px solid var(--line);border-radius:14px;background:rgba(176,124,240,.05);max-width:100%;overflow:hidden}
 .oh-loose .lg-head{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
 .oh-loose .lg-wrap{display:flex;flex-direction:column;gap:8px;padding-right:6px}
