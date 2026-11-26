@@ -2086,7 +2086,7 @@ body.chat-open .chat-fab{display:none}
         <section class="panel inventory-panel" aria-label="On-hand stock, inventory and reservations">
           <div class="inv-summary" id="ohSummary" hidden></div>
           <div class="filters oh-filters">
-            <input id="oh_q" placeholder="Search Matcode, Item Desc, customer, mobile, PO #, WL #…" aria-label="Search Matcode or Item Desc" oninput="setOh('q',this.value)">
+            <input id="oh_q" placeholder="Search Matcode, Item Desc, customer name, mobile, PO #, WL #…" aria-label="Search Matcode, Item Desc or customer name" oninput="setOh('q',this.value)">
             <select id="oh_type" aria-label="Filter type" onchange="setOh('type',this.value)"></select>
             <select id="oh_status" aria-label="Filter status" onchange="setOh('status',this.value)">
               <option value="">All Status</option><option value="In Stock">In Stock</option><option value="Out of Stock">Out of Stock</option>
@@ -3195,7 +3195,7 @@ function ohCustQ(pid) {
 function ohWaitShown(pid) {
   const cq = ohCustQ(pid);
   const w = waitingFor(pid).map((r, i) => ({ r: r, n: i })).filter(o => (!ohReqFilterOn() || ohReqMatch(o.r)) && (!cq || reqHit(o.r, cq)));
-  if (!S.oh.rstatus) return w;
+  if (!S.oh.rstatus && !cq) return w;   // a customer search also finds their Fulfilled / Cancelled requests
   const inQueue = new Set(w.map(o => o.r.id));
   const held = new Set(resvList().filter(isOpenResv).map(v => v.po));
   const more = S.rows.filter(r => !r.spare && !inQueue.has(r.id) && !held.has(r.id) && ohReqMatch(r) && (!cq || reqHit(r, cq)) &&
@@ -3301,7 +3301,7 @@ function ohFiltered() {
   // _lap: units held by lapsed reservations. They count as In Stock (same as the Dashboard).
   const list = ohList().map(x => { const rv = openResvOf(x.id); const lap = rv.filter(r => resvState(r) === 'Lapsed').length;
     return Object.assign({}, x, { _resv: rv, _lap: lap, _st: (Number(x.qty) || 0) + lap > 0 ? 'In Stock' : 'Out of Stock' }); }).filter(x =>
-    (!q || norm(x.matcode + ' ' + x.desc).includes(q) || reqsOf(x.id).some(r => reqHit(r, q)) || (S.oh.rstatus && ohWaitShown(x.id).length > 0)) &&
+    (!q || norm(x.matcode + ' ' + x.desc).includes(q) || reqsOf(x.id).some(r => reqHit(r, q)) || ((S.oh.rstatus || q) && ohWaitShown(x.id).length > 0)) &&
     (!f.type || x.type === f.type) &&
     (!f.status || x._st === f.status) &&
     (!ohReqFilterOn() || ohWaitShown(x.id).length || ohResvShown(x).length ||
@@ -4447,8 +4447,13 @@ const titleCase = t => String(t || '').toLowerCase().replace(/(^|[\s'-])([a-z])/
 const custName = r => { const n = [r.first, r.last].filter(x => x && !/^n\/?a$/i.test(String(x).trim())).join(' ').trim(); return n ? titleCase(n) : 'No name'; };
 // Open requests linked to a product (waiting, reserved or lapsed).
 const reqsOf = pid => S.rows.filter(r => r.productId === pid && !r.spare && !['Fulfilled', 'Cancelled'].includes(r.status));
-const reqHit = (r, q) => norm([r.id, r.first, r.last, r.mobile, r.waitlist].join(' ')).includes(q) ||
-  (digitsOnly(q).length >= 4 && digitsOnly(r.mobile).includes(digitsOnly(q)));
+// Customer search: PO #, name (first / last in any order, e.g. "santos maria"), mobile, WL #.
+const reqHit = (r, q) => {
+  const hay = norm([r.id, r.first, r.last, custName(r), r.mobile, r.waitlist].join(' '));
+  return hay.includes(q) ||
+    (q.includes(' ') && q.split(/\s+/).filter(Boolean).every(w => hay.includes(w))) ||
+    (digitsOnly(q).length >= 4 && digitsOnly(r.mobile).includes(digitsOnly(q)));
+};
 
 /* ----- The 48-hour queue: a unit goes from one customer to the next ----- */
 // The next customer for a product, leaving out one request.
