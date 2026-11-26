@@ -3108,7 +3108,7 @@ function renderKpis() {
 // Data: S.stockMoves rows = [time, freeChange, unitsIn, unitsOut, reservedChange] (last 35 days).
 S.stockRange = S.stockRange || '7D';
 const PH_OFFSET = 8 * 3600000;                       // Philippine time is UTC+8, no daylight saving
-function addStockMove(free, uin, uout, res) { const m = [Date.now(), free, uin, uout, res]; S.stockMoves = (S.stockMoves || []).concat([m]); return m; }
+function addStockMove(free, uin, uout, res, mat) { const m = [Date.now(), free, uin, uout, res, mat || '']; S.stockMoves = (S.stockMoves || []).concat([m]); return m; }
 function dropStockMove(m) { S.stockMoves = (S.stockMoves || []).filter(x => x !== m); }
 function setStockRange(r) { S.stockRange = r; renderStockChart(); }
 function stockBuckets() {
@@ -3558,7 +3558,7 @@ function saveStock(e) {
     { id: id || 'tmp-' + Date.now(), status: item.qty > 0 ? 'In Stock' : 'Out of Stock', pending: true });
   S.onHand = id ? ohList().map(r => r.id === id ? preview : r) : ohList().concat([preview]);
   const oldQ = id ? ((backup.find(r => r.id === id) || {}).qty || 0) : 0, dq = item.qty - oldQ;
-  const mv = dq ? addStockMove(dq, dq > 0 ? dq : 0, dq < 0 ? -dq : 0, 0) : null;
+  const mv = dq ? addStockMove(dq, dq > 0 ? dq : 0, dq < 0 ? -dq : 0, 0, item.matcode) : null;
   closeStockForm(); renderOnHand(); renderKpis();
   api('stockSave', { item: item }).then(list => {
     S.onHand = list || []; renderOnHand(); renderKpis(); saveCache();
@@ -3577,7 +3577,7 @@ function stockQty(id, delta) {
   x.qty += delta; x.status = x.qty > 0 ? 'In Stock' : 'Out of Stock';
   const q = ohQ[id] || (ohQ[id] = { delta: 0, timer: 0, sending: false, moves: [] });
   q.delta += delta;
-  q.moves.push(addStockMove(delta, delta > 0 ? delta : 0, delta < 0 ? -delta : 0, 0));
+  q.moves.push(addStockMove(delta, delta > 0 ? delta : 0, delta < 0 ? -delta : 0, 0, x.matcode));
   renderOnHand(); renderKpis();
   clearTimeout(q.timer);
   q.timer = setTimeout(() => flushOhQty(id), OH_QTY_WAIT);
@@ -3670,7 +3670,7 @@ function resvDo(id, what) {
   // show it at once
   const hadUnit = r.taken;
   const mv = what === 'timer' ? (hadUnit ? null : addStockMove(-1, 0, 0, 1))
-    : what === 'sold' ? addStockMove(hadUnit ? 0 : -1, 0, 1, hadUnit ? -1 : 0)
+    : what === 'sold' ? addStockMove(hadUnit ? 0 : -1, 0, 1, hadUnit ? -1 : 0, r.matcode)
     : (hadUnit ? addStockMove(1, 0, 0, -1) : null);
   if (what === 'timer') { if (!r.taken && p) { p.qty--; r.taken = true; } r.status = 'Active'; r.holdUntil = Date.now() + 48 * 3600000; }
   else if (what === 'sold') { if (!r.taken && p) { p.qty--; r.taken = true; } r.status = 'Sold'; r.closedAt = Date.now(); }
@@ -3886,14 +3886,15 @@ function renderTop() {
   const by = new Map();
   const add = (t, n) => by.set(t, (by.get(t) || 0) + n);
   {
+    // Used Qty = units that went out of stock in the period (− taps, Qty lowered in Edit, Sold), from the Stock Log.
     const days = { '1D': 1, '7D': 7, '1M': 30 }[range];
     const [y, mo, d] = today().split('-').map(Number);
     const from = Date.UTC(y, mo - 1, d) - PH_OFFSET - (days - 1) * 86400000;     // Philippine midnight, N days back
-    const sold = resvList().filter(v => v.status === 'Sold' && Number(v.closedAt) >= from);
-    const viaResv = new Set(sold.map(v => v.po).filter(Boolean));
-    sold.forEach(v => add(typeOfPid.get(v.productId) || 'Other', 1));
-    S.rows.filter(r => !r.spare && r.status === 'Fulfilled' && !viaResv.has(r.id) && Number(r.updatedAt) >= from)
-      .forEach(r => add(typeOfPid.get(r.productId || ohSuggestOf(r)) || 'Other', Math.max(1, Number(r.qty) || 1)));
+    const typeOfMat = new Map((S.onHand || []).map(x => [String(x.matcode).trim().toLowerCase(), String(x.type || 'Other').trim() || 'Other']));
+    (S.stockMoves || []).forEach(m => {
+      if (Number(m[0]) < from || !(Number(m[3]) > 0)) return;
+      add(typeOfMat.get(String(m[5] || '').trim().toLowerCase()) || 'Other', Number(m[3]));
+    });
   }
   // Always the 9 handset brands, even with 0 sold (accessories, SIMs, bags… are not shown here).
   const BRANDS = ['iPhone', 'Honor', 'Samsung', 'Huawei', 'Oppo', 'Infinix', 'Vivo', 'Xiaomi', 'Realme'];
@@ -3904,12 +3905,12 @@ function renderTop() {
   const BAR = ['#22c55e', '#f5b70a', '#ef4444', '#ec4899', '#7c3aed', '#3b82f6', '#14b8a6', '#f97316', '#06b6d4', '#a3a3a3'];
   $('top').innerHTML = list.map((o, i) => {
     const pct = totalSold ? Math.round(o.qty / totalSold * 100) : 0, h = Math.round(o.qty / max * 100), c = BAR[i % BAR.length];
-    return `<button type="button" class="tp-col" role="listitem" title="${esc(o.type)}: ${formatCount(o.qty)} ${o.qty === 1 ? 'unit' : 'units'} sold (${pct}% of all sales)"
+    return `<button type="button" class="tp-col" role="listitem" title="${esc(o.type)}: ${formatCount(o.qty)} ${o.qty === 1 ? 'unit' : 'units'} used (${pct}% of all used Qty)"
         onclick="S.oh.type='${esc(o.type)}';$('oh_type').value='${esc(o.type)}';renderOnHand();navigateTo('inventory')">
       <span class="tp-track"><span class="tp-bar" style="height:${Math.max(2, h)}%;--c:${c}${o.qty ? '' : ';opacity:.35'}"><span class="tp-pct">${pct}%<small>${formatCount(o.qty)}</small></span></span></span>
       <span class="tp-name"><span>${esc(o.type)}</span></span></button>`;
   }).join('');
-  $('topNote').textContent = `Handsets sold (Sold + Fulfilled) ${range === '1D' ? 'today' : range === '7D' ? 'in the last 7 days' : 'in the last 30 days'} by brand · ${formatCount(totalSold)} sold in all. % = share of all handset sales. Tap a bar to see it in Inventory.`;
+  $('topNote').textContent = `Used Qty (units out of stock: − taps and sales) ${range === '1D' ? 'today' : range === '7D' ? 'in the last 7 days' : 'in the last 30 days'} by brand · ${formatCount(totalSold)} used in all. % = share of all handsets used. Tap a bar to see it in Inventory.`;
 }
 
 /* A row is in Available Units when its unit is free: a spare handset, or a
