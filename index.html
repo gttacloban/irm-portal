@@ -301,6 +301,7 @@ label .req{color:var(--ca)}
 .op-ago{font-size:11px;color:var(--muted);white-space:nowrap}
 .op-empty{padding:8px;color:var(--muted);font-size:13px}
 @media(max-width:700px){.online-badge .txt{display:none}.online-badge{padding:7px 9px}}
+.lap-list{margin-bottom:6px}
 .wq.done{border-color:var(--line);background:transparent}
 .wq-st{font-style:normal;font-size:11px;font-weight:800;margin-right:6px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
@@ -3382,7 +3383,8 @@ function ohFiltered() {
     (!f.status || x._st === f.status) &&
     (!ohReqFilterOn() || ohWaitShown(x.id).length || ohResvShown(x).length ||
       false) &&
-    (!f.to || (f.to === '__any' ? x._resv.length > 0 : f.to === '__none' ? !x._resv.length : x._resv.some(r => r.seller === f.to))) &&
+    (!f.to || (() => { const act = x._resv.filter(r => resvState(r) !== 'Lapsed');   // "Reserved" = active reservations only
+      return f.to === '__any' ? act.length > 0 : f.to === '__none' ? !act.length : act.some(r => r.seller === f.to); })()) &&
     ((!f.from && !f.toDate) || x._resv.some(r => (!f.from || r.resvDate >= f.from) && (!f.toDate || r.resvDate <= f.toDate))));
   const k = f.sort, d = f.dir;
   const val = x => k === 'reservedTo' ? x._resv.length : k === 'waiting' ? waitingFor(x.id).length : k === 'resvDate' ? (x._resv.map(r => r.resvDate).sort()[0] || '') : x[k];
@@ -3392,7 +3394,7 @@ function ohFiltered() {
     return String(va || '').localeCompare(String(vb || ''), undefined, { numeric: true }) * d || a.desc.localeCompare(b.desc);
   });
 }
-function resvChip(r) {
+function resvChip(r, poOnly) {
   const st = resvState(r);
   const cls = st === 'Lapsed' ? 'lapsed' : st === 'Pending' ? 'idle' : 'live';
   const btns = S.admin ? `<span class="rv-btns">
@@ -3401,7 +3403,7 @@ function resvChip(r) {
       <button type="button" title="Cancel${r.taken ? ': 1 unit goes back to Qty' : ''}" onclick="resvDo('${esc(r.id)}','cancel')">✕</button>${r.po && st === 'Lapsed' ? `
       <button type="button" class="rv-next" title="Not collected: give the unit to the next customer in line" onclick="passToNext('${esc(r.id)}')">Next ›</button>` : ''}</span>` : '';
   const rq = r.po ? S.rows.find(x => x.id === r.po) : null;
-  const who = r.po ? `<b class="rv-po" role="button" tabindex="0" title="${esc(r.po)} · ${esc(rq ? custName(rq) : r.seller)} — customer details" onclick="openReqCard('${esc(r.po)}',this)">${esc(r.po)} · ${esc(rq ? custName(rq) : r.seller)}</b>` : `<b title="Old seller reservation (no customer request). Close it with ✓ or ✕.">${esc(r.seller)} <em class="rv-nopo">no PO</em></b>`;
+  const who = r.po ? `<b class="rv-po" role="button" tabindex="0" title="${esc(r.po)} · ${esc(rq ? custName(rq) : r.seller)} — customer details" onclick="openReqCard('${esc(r.po)}',this)">${esc(r.po)}${poOnly === true ? '' : ' · ' + esc(rq ? custName(rq) : r.seller)}</b>` : `<b title="Old seller reservation (no customer request). Close it with ✓ or ✕.">${esc(r.seller)} <em class="rv-nopo">no PO</em></b>`;
   return `<span class="rv-chip ${cls}${r.pending ? ' pending' : ''}" title="${esc((r.resvDate ? 'Resv date ' + r.resvDate + ' · ' : '') + resvTimerText(r))}">${who}<span class="rv-meta"><span class="rv-date">${esc(r.resvDate || '')} · </span>⏱ ${esc(shortTimer(r))}</span>${btns}</span>`;
 }
 let ohListKey = '';
@@ -3465,14 +3467,18 @@ function renderOnHand() {
   const st = x => `<span class="oh-st ${x._st === 'In Stock' ? 'in' : 'out'}">${x._st}</span>`;
   const dates = x => [...new Set(x._resv.map(r => r.resvDate).filter(Boolean))].sort().join('<br>') || '—';
   const q = norm(S.oh.q);
-  const chips = x => { const rv = ohResvShown(x); return rv.length ? `<div class="rv-list">${rv.map(resvChip).join('')}</div>` : '—'; };
+  // Reserved column = active reservations only (same count as the Active Reservations tile).
+  // Lapsed ones move to the top of the Waiting column, with their Next › / ✕ / ✓ / ⏱ buttons.
+  const chips = x => { const rv = ohResvShown(x).filter(v => resvState(v) !== 'Lapsed'); return rv.length ? `<div class="rv-list">${rv.map(resvChip).join('')}</div>` : '—'; };
   // Waiting customers in queue order: first 3 as chips, the rest behind "+N more".
   const waitCell = x => {
     // With a request filter on, only the matching customers show (their real queue number is kept).
     const w = ohWaitShown(x.id);
-    if (!w.length) return '—';
+    const lap = ohResvShown(x).filter(v => resvState(v) === 'Lapsed');
+    const lapHtml = lap.length ? `<div class="rv-list lap-list" title="48 hours passed: the unit is still held. Next › gives it to the next customer, ✕ puts it back in Qty.">${lap.map(v => resvChip(v, true)).join('')}</div>` : '';
+    if (!w.length) return lapHtml || '—';
     const cap = S.oh.rstatus ? w.length : 3;
-    return `<div class="wq-list">${w.slice(0, cap).map(({ r, v, n: i }) => i === -2
+    return lapHtml + `<div class="wq-list">${w.slice(0, cap).map(({ r, v, n: i }) => i === -2
       ? `<span class="wq done" title="Sold through a reservation${v.closedAt ? ' on ' + esc(new Date(v.closedAt).toLocaleDateString('en-US', { timeZone: PH_TZ, month: 'short', day: 'numeric' })) : ''}"><em class="wq-st" style="color:#f2b01e">Sold</em>${v.po ? esc(v.po) : 'No PO · ' + esc(v.seller || '—')}</span>`
       : i < 0
       ? `<span class="wq done" role="button" tabindex="0" title="${esc(r.id)} · ${esc(custName(r))} — customer details" onclick="openReqCard('${esc(r.id)}',this)">
