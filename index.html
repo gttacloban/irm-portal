@@ -3473,13 +3473,13 @@ function renderOnHand() {
     if (!w.length) return '—';
     const cap = S.oh.rstatus ? w.length : 3;
     return `<div class="wq-list">${w.slice(0, cap).map(({ r, v, n: i }) => i === -2
-      ? `<span class="wq done" title="Sold through a reservation${v.closedAt ? ' on ' + esc(new Date(v.closedAt).toLocaleDateString('en-US', { timeZone: PH_TZ, month: 'short', day: 'numeric' })) : ''}"><em class="wq-st" style="color:#f2b01e">Sold</em>${v.po ? esc(v.po) + ' · ' : ''}${esc(v.seller || '—')} <span class="small">· ${v.po ? 'request archived' : 'no PO'} · ${esc(v.resvDate || '')}</span></span>`
+      ? `<span class="wq done" title="Sold through a reservation${v.closedAt ? ' on ' + esc(new Date(v.closedAt).toLocaleDateString('en-US', { timeZone: PH_TZ, month: 'short', day: 'numeric' })) : ''}"><em class="wq-st" style="color:#f2b01e">Sold</em>${v.po ? esc(v.po) : 'No PO · ' + esc(v.seller || '—')}</span>`
       : i < 0
-      ? `<span class="wq done" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.id)}',this)">
-        <em class="wq-st" style="color:${ohStColor(shownStatus(r))}">${esc(statusLabel(shownStatus(r)))}</em>${esc(r.id)} · ${esc(custName(r))}${S.admin && !r.productId && !['Fulfilled', 'Cancelled'].includes(r.status)
+      ? `<span class="wq done" role="button" tabindex="0" title="${esc(r.id)} · ${esc(custName(r))} — customer details" onclick="openReqCard('${esc(r.id)}',this)">
+        <em class="wq-st" style="color:${ohStColor(shownStatus(r))}">${esc(statusLabel(shownStatus(r)))}</em>${esc(r.id)}${S.admin && !r.productId && !['Fulfilled', 'Cancelled'].includes(r.status)
           ? `<button type="button" class="go wq-link" title="Not linked yet. Link ${esc(r.id)} to ${esc(x.desc)} to put it in the queue" onclick="event.stopPropagation();sendLinks([{id:'${esc(r.id)}',productId:'${esc(x.id)}'}])">Link</button>` : ''}</span>`
       : `<span class="wq${q && reqHit(r, q) ? ' hit' : ''}" role="button" tabindex="0" title="Customer details" onclick="openReqCard('${esc(r.id)}',this)">
-        <i>${i + 1}</i><span class="wq-name" title="${esc(r.id)} · ${esc(custName(r))}">${esc(r.id)} · ${esc(custName(r))}</span>${isLapsed(r.status) ? ' <em class="wq-lap">Lapsed</em>' : ''}${S.admin ? `<button type="button" class="go" ${x.qty >= (r.qty || 1) ? '' : 'disabled title="Out of Stock"'} onclick="event.stopPropagation();reserveForPO('${esc(r.id)}')">Reserve</button>` : ''}</span>`).join('')}
+        <i>${i + 1}</i><span class="wq-name" title="${esc(r.id)} · ${esc(custName(r))}">${esc(r.id)}</span>${isLapsed(r.status) ? ' <em class="wq-lap">Lapsed</em>' : ''}${S.admin ? `<button type="button" class="go" ${x.qty >= (r.qty || 1) ? '' : 'disabled title="Out of Stock"'} onclick="event.stopPropagation();reserveForPO('${esc(r.id)}')">Reserve</button>` : ''}</span>`).join('')}
       ${w.length > cap ? `<button type="button" class="wq-more" onclick="openWaiting('${esc(x.id)}')">+${w.length - 3} more</button>` : ''}</div>`;
   };
   // Requests that match the request filters / customer search but have no product in Inventory
