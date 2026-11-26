@@ -266,6 +266,12 @@ label .req{color:var(--ca)}
 .tp-name > span{position:absolute;top:6px;right:50%;transform:rotate(-40deg);transform-origin:top right}
 .tp-units{order:-1;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 .tp-empty{margin:auto;color:var(--muted)}
+.dash-title{display:flex;flex-direction:column;gap:4px;min-width:0}
+.dash-eyebrow{font-size:15px;font-weight:800;letter-spacing:.12em;color:#7aa2ff}
+.welcome-row .dash-title h2{font-size:30px;line-height:1.15;margin:0;font-weight:800}
+.dash-sub{margin:2px 0 0;font-size:14px;color:var(--muted)}
+.welcome-row{align-items:center}
+@media(max-width:700px){.dash-eyebrow{font-size:12.5px}.welcome-row .dash-title h2{font-size:24px}.dash-sub{font-size:12.5px}}
 .wq.done{border-color:var(--line);background:transparent}
 .wq-st{font-style:normal;font-size:11px;font-weight:800;margin-right:6px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
@@ -2035,7 +2041,11 @@ body.chat-open .chat-fab{display:none}
           </form>
         </section>
         <div class="welcome-row">
-          <div><h2>Dashboard Overview</h2></div>
+          <div class="dash-title">
+            <div class="dash-eyebrow">INVENTORY &amp; RESERVATIONS</div>
+            <h2>Dashboard Overview</h2>
+            <p class="dash-sub">• Realtime overview of inventory, reservations, monitor customer pre-orders and requests.</p>
+          </div>
           <div class="date-pill" id="todayLabel" aria-label="Date and time in the Philippines"></div>
         </div>
         <div class="rolebar" id="rolebar" style="display:none"></div>
