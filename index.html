@@ -3770,20 +3770,21 @@ function renderTop() {
     S.rows.filter(r => !r.spare && r.status === 'Fulfilled' && !viaResv.has(r.id) && Number(r.updatedAt) >= from)
       .forEach(r => add(typeOfPid.get(r.productId || ohSuggestOf(r)) || 'Other', Math.max(1, Number(r.qty) || 1)));
   }
-  const list = [...by].map(([type, qty]) => ({ type, qty })).filter(o => o.qty > 0)
-    .sort((a, b) => b.qty - a.qty || a.type.localeCompare(b.type)).slice(0, 10);
-  const max = list.length ? list[0].qty : 1;
-  const totalSold = [...by.values()].reduce((a, b) => a + b, 0) || 1;   // % = share of all units sold in the period
+  // Always the 9 handset brands, even with 0 sold (accessories, SIMs, bags… are not shown here).
+  const BRANDS = ['iPhone', 'Honor', 'Samsung', 'Huawei', 'Oppo', 'Infinix', 'Vivo', 'Xiaomi', 'Realme'];
+  const qtyOf = t => [...by].filter(([k]) => norm(k) === norm(t)).reduce((n, [, q]) => n + q, 0);
+  const list = BRANDS.map((type, i) => ({ type, qty: qtyOf(type), i })).sort((a, b) => b.qty - a.qty || a.i - b.i);
+  const max = Math.max(1, ...list.map(o => o.qty));
+  const totalSold = list.reduce((a, o) => a + o.qty, 0);                // % = share of all handsets sold in the period
   const BAR = ['#22c55e', '#f5b70a', '#ef4444', '#ec4899', '#7c3aed', '#3b82f6', '#14b8a6', '#f97316', '#06b6d4', '#a3a3a3'];
-  $('top').innerHTML = list.length ? list.map((o, i) => {
-    const pct = Math.round(o.qty / totalSold * 100), h = Math.round(o.qty / max * 100), c = BAR[i % BAR.length];
+  $('top').innerHTML = list.map((o, i) => {
+    const pct = totalSold ? Math.round(o.qty / totalSold * 100) : 0, h = Math.round(o.qty / max * 100), c = BAR[i % BAR.length];
     return `<button type="button" class="tp-col" role="listitem" title="${esc(o.type)}: ${formatCount(o.qty)} ${o.qty === 1 ? 'unit' : 'units'} sold (${pct}% of all sales)"
         onclick="S.oh.type='${esc(o.type)}';$('oh_type').value='${esc(o.type)}';renderOnHand();navigateTo('inventory')">
-      <span class="tp-track"><span class="tp-bar" style="height:${Math.max(3, h)}%;--c:${c}"><span class="tp-pct">${pct}%<small>${formatCount(o.qty)}</small></span></span></span>
+      <span class="tp-track"><span class="tp-bar" style="height:${Math.max(2, h)}%;--c:${c}${o.qty ? '' : ';opacity:.35'}"><span class="tp-pct">${pct}%<small>${formatCount(o.qty)}</small></span></span></span>
       <span class="tp-name"><span>${esc(o.type)}</span></span></button>`;
-  }).join('')
-    : '<div class="tp-empty">Nothing sold in this period</div>';
-  $('topNote').textContent = `Units sold (Sold + Fulfilled) ${range === '1D' ? 'today' : range === '7D' ? 'in the last 7 days' : 'in the last 30 days'} by product type · ${formatCount(totalSold === 1 && !list.length ? 0 : totalSold)} sold in all. % = share of all sales. Tap a bar to see it in Inventory.`;
+  }).join('');
+  $('topNote').textContent = `Handsets sold (Sold + Fulfilled) ${range === '1D' ? 'today' : range === '7D' ? 'in the last 7 days' : 'in the last 30 days'} by brand · ${formatCount(totalSold)} sold in all. % = share of all handset sales. Tap a bar to see it in Inventory.`;
 }
 
 /* A row is in Available Units when its unit is free: a spare handset, or a
