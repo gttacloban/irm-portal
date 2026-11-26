@@ -4602,7 +4602,13 @@ function openReqCard(id, el) {
 function closeReqCard() { S.cardId = ''; S.cardAnchor = null; const c = $('reqCard'); if (c) c.hidden = true; }
 function placeReqCard() {
   const c = $('reqCard'), a = S.cardAnchor;
-  if (window.innerWidth <= 700 || !a || !document.body.contains(a)) { c.classList.add('sheet'); c.style.left = c.style.top = ''; return; }
+  if (window.innerWidth <= 700) { c.classList.add('sheet'); c.style.left = c.style.top = ''; return; }
+  // The chip it was opened from was redrawn (e.g. moved to Waiting after a status change):
+  // keep the card where it is instead of turning it into a full-width sheet.
+  if (!a || !document.body.contains(a)) {
+    if (c.style.left && !c.classList.contains('sheet')) return;
+    c.classList.add('sheet'); c.style.left = c.style.top = ''; return;
+  }
   c.classList.remove('sheet');
   const r = a.getBoundingClientRect(), w = c.offsetWidth, h = c.offsetHeight;
   let left = Math.min(Math.max(12, r.left), window.innerWidth - w - 12);
