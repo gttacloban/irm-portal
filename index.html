@@ -2028,7 +2028,6 @@ body.chat-open .chat-fab{display:none}
           <section class="panel insight-panel rank-panel" id="stockSection" aria-label="Top 10 products">
             <div class="panel-heading"><div><div class="panel-eyebrow">STOCK &amp; DEMAND</div><h3>★ Top Products</h3></div>
               <div class="sm-range" id="topRange" role="group" aria-label="Top products period">
-                <button type="button" data-t="Stock" onclick="setTopRange('Stock')" title="Units in stock now">Stock</button>
                 <button type="button" data-t="1D" onclick="setTopRange('1D')" title="Units sold today">1D</button>
                 <button type="button" data-t="7D" onclick="setTopRange('7D')" title="Units sold in the last 7 days">7D</button>
                 <button type="button" data-t="1M" onclick="setTopRange('1M')" title="Units sold in the last 30 days">1M</button>
@@ -3756,14 +3755,12 @@ function navigateTo(area) {
 // % is compared with the type that has the most units. Tap a bar to see that type in Inventory.
 function setTopRange(r) { S.topRange = r; renderTop(); }
 function renderTop() {
-  const range = S.topRange || 'Stock';
+  const range = S.topRange || '7D';
   document.querySelectorAll('#topRange button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === range));
   const typeOfPid = new Map((S.onHand || []).map(x => [x.id, String(x.type || 'Other').trim() || 'Other']));
   const by = new Map();
   const add = (t, n) => by.set(t, (by.get(t) || 0) + n);
-  if (range === 'Stock') {
-    (S.onHand || []).forEach(x => add(typeOfPid.get(x.id), Math.max(0, Number(x.qty) || 0)));
-  } else {
+  {
     const days = { '1D': 1, '7D': 7, '1M': 30 }[range];
     const [y, mo, d] = today().split('-').map(Number);
     const from = Date.UTC(y, mo - 1, d) - PH_OFFSET - (days - 1) * 86400000;     // Philippine midnight, N days back
@@ -3776,19 +3773,17 @@ function renderTop() {
   const list = [...by].map(([type, qty]) => ({ type, qty })).filter(o => o.qty > 0)
     .sort((a, b) => b.qty - a.qty || a.type.localeCompare(b.type)).slice(0, 10);
   const max = list.length ? list[0].qty : 1;
+  const totalSold = [...by.values()].reduce((a, b) => a + b, 0) || 1;   // % = share of all units sold in the period
   const BAR = ['#22c55e', '#f5b70a', '#ef4444', '#ec4899', '#7c3aed', '#3b82f6', '#14b8a6', '#f97316', '#06b6d4', '#a3a3a3'];
-  const what = range === 'Stock' ? 'in stock' : 'sold';
   $('top').innerHTML = list.length ? list.map((o, i) => {
-    const pct = Math.round(o.qty / max * 100), c = BAR[i % BAR.length];
-    return `<button type="button" class="tp-col" role="listitem" title="${esc(o.type)}: ${formatCount(o.qty)} ${o.qty === 1 ? 'unit' : 'units'} ${what} (${pct}%)"
+    const pct = Math.round(o.qty / totalSold * 100), h = Math.round(o.qty / max * 100), c = BAR[i % BAR.length];
+    return `<button type="button" class="tp-col" role="listitem" title="${esc(o.type)}: ${formatCount(o.qty)} ${o.qty === 1 ? 'unit' : 'units'} sold (${pct}% of all sales)"
         onclick="S.oh.type='${esc(o.type)}';$('oh_type').value='${esc(o.type)}';renderOnHand();navigateTo('inventory')">
-      <span class="tp-track"><span class="tp-bar" style="height:${Math.max(3, pct)}%;--c:${c}"><span class="tp-pct">${pct}%<small>${formatCount(o.qty)}</small></span></span></span>
+      <span class="tp-track"><span class="tp-bar" style="height:${Math.max(3, h)}%;--c:${c}"><span class="tp-pct">${pct}%<small>${formatCount(o.qty)}</small></span></span></span>
       <span class="tp-name"><span>${esc(o.type)}</span></span></button>`;
   }).join('')
-    : `<div class="tp-empty">${range === 'Stock' ? 'No units in stock yet' : 'Nothing sold in this period'}</div>`;
-  $('topNote').textContent = range === 'Stock'
-    ? 'Top 10 product types by units in stock now. % is compared with the type that has the most units. Tap a bar to see it in Inventory.'
-    : `Top 10 product types by units sold (Sold + Fulfilled) in the last ${range === '1D' ? 'day (today)' : range === '7D' ? '7 days' : '30 days'}. % is compared with the best seller.`;
+    : '<div class="tp-empty">Nothing sold in this period</div>';
+  $('topNote').textContent = `Units sold (Sold + Fulfilled) ${range === '1D' ? 'today' : range === '7D' ? 'in the last 7 days' : 'in the last 30 days'} by product type · ${formatCount(totalSold === 1 && !list.length ? 0 : totalSold)} sold in all. % = share of all sales. Tap a bar to see it in Inventory.`;
 }
 
 /* A row is in Available Units when its unit is free: a spare handset, or a
