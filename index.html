@@ -4933,6 +4933,13 @@ function changeStatus(id, status) {
   const needsUnit = (status === 'For Release' || status === 'Reserved') && old !== status;
   if (needsUnit) { r.checking = true; watchChecking(id); }
   else r.status = status;
+  // Lapsed by hand: the 48 hours end at once on screen (reservation moves to Waiting with Next ›).
+  const lapBack = [];
+  if (isLapsed(status)) {
+    const t = Date.now() - 1000;
+    resvList().filter(v => v.po === id && isOpenResv(v)).forEach(v => { lapBack.push([v, v.holdUntil]); v.holdUntil = t; });
+    if (lapBack.length) r.holdUntil = t;
+  }
   render();
   api('status', { id: id, status: status })
     .then(res => {
@@ -4942,7 +4949,7 @@ function changeStatus(id, status) {
       applyResvLists(res);
       const now = S.rows.find(x => x.id === id); if (now && now !== r) { now.checking = false; if (res && res.row) Object.assign(now, res.row); }
       render(); refreshAvailableUnits(); toast(id + ' → ' + statusLabel(status) + (status === 'For Release' && old !== 'For Release' ? ` (${HOLD_MAX}h hold started)` : '')); })
-    .catch(err => { r.checking = false; r.status = old; r.holdUntil = oldHold;
+    .catch(err => { r.checking = false; r.status = old; r.holdUntil = oldHold; lapBack.forEach(([v, h]) => { v.holdUntil = h; });
       const now = S.rows.find(x => x.id === id); if (now) now.checking = false;
       render(); toast(err.message, true); });
 }
