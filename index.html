@@ -1641,9 +1641,14 @@ a.nav-item:hover{color:#274ebd}
 .oh-table{table-layout:fixed}
 /* Fixed pixel widths for the short columns (they never overlap the next one);
    Item Desc / Reserved / Waiting share the rest, Reserved getting the most. */
-.oh-table th:nth-child(1){width:72px}.oh-table th:nth-child(3){width:78px}.oh-table th:nth-child(4){width:122px}
-.oh-table th:nth-child(5){width:118px}.oh-table th:nth-child(8){width:72px}
-.oh-table th:nth-child(2){width:21%}.oh-table th:nth-child(6){width:45%}.oh-table th:nth-child(7){width:34%}
+.oh-table th:nth-child(1){width:72px}.oh-table th:nth-child(3){width:78px}.oh-table th:nth-child(4){width:108px}
+.oh-table th:nth-child(5){width:104px}.oh-table th:nth-child(8){width:72px}
+.oh-table th:nth-child(2){width:27%}.oh-table th:nth-child(6){width:41%}.oh-table th:nth-child(7){width:32%}
+/* Tighter Qty / Status cells so they fit their narrower columns. */
+.oh-table td:nth-child(3),.oh-table td:nth-child(4),.oh-table td:nth-child(5){padding-left:6px;padding-right:6px}
+.oh-table td:nth-child(3){overflow-wrap:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oh-table .oh-step{width:28px;height:28px;min-width:28px}
+.oh-table .oh-st{font-size:11px;padding:4px 8px}
 .oh-table{min-width:940px}
 .oh-table td:nth-child(5){padding-right:12px}
 .oh-table .oh-st{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
