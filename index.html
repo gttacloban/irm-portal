@@ -272,6 +272,35 @@ label .req{color:var(--ca)}
 .dash-sub{margin:2px 0 0;font-size:14px;color:var(--muted)}
 .welcome-row{align-items:center}
 @media(max-width:700px){.dash-eyebrow{font-size:12.5px}.welcome-row .dash-title h2{font-size:24px}.dash-sub{font-size:12.5px}}
+/* Inventory: dates + Archive / Reservation history / Add New Product on one row. */
+@media(min-width:701px){
+  #ohDateRow{flex-wrap:nowrap!important;align-items:center;gap:8px}
+  #ohDateRow > *{flex:0 0 auto}
+  #ohDateRow .date-range-title{white-space:nowrap;font-size:12px}
+  #ohDateRow .date-field{gap:6px;white-space:nowrap}
+  #ohDateRow .date-field input[type="date"]{width:138px;padding:7px 8px;min-height:36px;font-size:12.5px}
+  #ohDateRow .date-clear{padding:8px 11px;min-height:36px;font-size:12.5px;white-space:nowrap}
+  #ohDateRow .oh-add{margin-left:auto}
+  #ohDateRow #archiveBtnOh:not([hidden]) + .oh-add, #ohDateRow .oh-add + .oh-add{margin-left:0}
+}
+@media(min-width:701px) and (max-width:1250px){
+  #ohDateRow .date-range-title,#ohDateRow .date-field > span{display:none}
+  #ohDateRow .date-field input[type="date"]{width:124px}
+  #ohDateRow{gap:6px}
+  #ohDateRow .date-clear{padding:8px 9px}
+}
+.online-wrap{position:relative;display:inline-flex}
+.online-badge{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink,#fff);font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.online-badge b{font-size:15px;color:#4cc45a;font-variant-numeric:tabular-nums}
+.online-pop{position:absolute;top:calc(100% + 8px);right:0;z-index:60;min-width:240px;max-height:320px;overflow:auto;padding:8px;border-radius:14px;border:1px solid var(--line);background:var(--card,#16223a);box-shadow:0 14px 34px rgba(0,0,0,.4)}
+.op-head{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:4px 8px 8px}
+.op-row{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:9px;font-size:13px}
+.op-row:hover{background:rgba(127,140,170,.1)}
+.op-row b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-role{font-size:11px;color:var(--muted)}
+.op-ago{font-size:11px;color:var(--muted);white-space:nowrap}
+.op-empty{padding:8px;color:var(--muted);font-size:13px}
+@media(max-width:700px){.online-badge .txt{display:none}.online-badge{padding:7px 9px}}
 .wq.done{border-color:var(--line);background:transparent}
 .wq-st{font-style:normal;font-size:11px;font-weight:800;margin-right:6px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
@@ -1982,14 +2011,20 @@ body.chat-open .chat-fab{display:none}
     <header class="topbar">
       <div class="topbar-left">
         <button type="button" class="menu-toggle" onclick="toggleSidebar()" aria-label="Open menu" aria-expanded="false" id="menuToggle">☰</button>
-        <div class="topbar-head"><div class="topbar-crumb">Workspace <span>/</span> Dashboard</div>
-          <h1>Dashboard</h1></div>
+        <div class="topbar-head"><div class="topbar-crumb" id="greetLine">Welcome</div>
+          <h1 id="greetName">Welcome</h1></div>
       </div>
       <div class="hright">
         <button type="button" class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Switch to Dark Mode" aria-pressed="false" title="Switch appearance">
           <span class="theme-icon" aria-hidden="true">☾</span><span class="theme-text">Dark Mode</span>
         </button>
         <span class="live-badge"><span class="online-dot"></span> Live tracker</span>
+        <span class="online-wrap">
+          <button type="button" class="online-badge" id="onlineBadge" hidden onclick="toggleOnlineList(event)" aria-haspopup="true" aria-expanded="false" title="Sellers online now">
+            <span class="online-dot"></span><b id="onlineCount">0</b> <span class="txt">sellers online</span>
+          </button>
+          <div class="online-pop" id="onlinePop" hidden></div>
+        </span>
         <button class="btn btn-light" id="btnUsers" onclick="openUsers()" style="display:none">👥 <span class="txt">Users</span></button>
         <button class="btn btn-primary" id="btnNew" onclick="openForm()" style="display:none">+ New Request</button>
         <button class="who" id="who" style="display:none" onclick="logout()" title="Sign out">
@@ -2100,10 +2135,10 @@ body.chat-open .chat-fab{display:none}
             <select id="oh_rstatus" aria-label="Filter by request status" onchange="setOh('rstatus',this.value)"></select>
             <select id="oh_rseller" aria-label="Filter by request seller" onchange="setOh('rseller',this.value)"></select>
             <select id="oh_rtype" aria-label="Filter by request type" onchange="setOh('rtype',this.value)"></select>
-            <div class="date-range" role="group" aria-label="Filter by reservation date">
+            <div class="date-range" id="ohDateRow" role="group" aria-label="Filter by reservation date">
               <div class="date-range-title">📅 Resv Date Range</div>
-              <label class="date-field" for="oh_from"><span>From Date</span><input type="date" id="oh_from" onchange="setOh('from',this.value)"></label>
-              <label class="date-field" for="oh_to_date"><span>To Date</span><input type="date" id="oh_to_date" onchange="setOh('toDate',this.value)"></label>
+              <label class="date-field" for="oh_from"><span>From Date</span><input type="date" id="oh_from" title="From date (reservation)" aria-label="From date" onchange="setOh('from',this.value)"></label>
+              <label class="date-field" for="oh_to_date"><span>To Date</span><input type="date" id="oh_to_date" title="To date (reservation)" aria-label="To date" onchange="setOh('toDate',this.value)"></label>
               <button type="button" class="date-clear" onclick="clearOhDates()">Clear Dates</button>
               <button type="button" class="date-clear oh-add" id="archiveBtnOh" hidden onclick="openArchive()" title="Fulfilled and Cancelled requests older than 30 days">🗄 Archive</button>
               <button type="button" class="date-clear oh-add" onclick="openResvHistory()">🕘 Reservation history</button>
@@ -2758,6 +2793,37 @@ function deviceLabel() {
 // Closing the tab or the installed app (not just switching apps).
 window.addEventListener('pagehide', e => { if (!e.persisted && !S.signingOut) sendSession('Closed portal'); });
 
+/* ----- Sellers online: who has the portal open now (seen by the server in the last 2 minutes) ----- */
+let onlineTimer = null;
+function pollOnline() {
+  if (!tokenValid() || document.hidden) return;
+  api('presence', {}).then(res => { S.online = res.online || []; renderOnline(); }).catch(() => {});
+}
+function startOnline() {
+  clearInterval(onlineTimer);
+  pollOnline();
+  onlineTimer = setInterval(pollOnline, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) pollOnline(); });
+}
+function renderOnline() {
+  const list = S.online || [];
+  const sellers = list.filter(x => x.role !== 'Admin');
+  $('onlineBadge').hidden = !S.admin;
+  $('onlineCount').textContent = sellers.length;
+  $('onlineBadge').querySelector('.txt').textContent = sellers.length === 1 ? 'seller online' : 'sellers online';
+  const ago = t => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'now' : m + ' min ago'; };
+  $('onlinePop').innerHTML = `<div class="op-head">Online now</div>` + (list.length
+    ? list.map(x => `<div class="op-row"><span class="online-dot"></span><b>${esc(x.name)}</b><span class="op-role">${esc(x.role)}</span><span class="op-ago">${ago(x.seen)}</span></div>`).join('')
+    : '<div class="op-empty">No seller online</div>');
+}
+function toggleOnlineList(e) {
+  e.stopPropagation();
+  const pop = $('onlinePop'), open = pop.hidden;
+  pop.hidden = !open; $('onlineBadge').setAttribute('aria-expanded', String(open));
+  if (open) pollOnline();
+}
+document.addEventListener('click', e => { const w = document.querySelector('.online-wrap'); if (w && !w.contains(e.target)) { $('onlinePop').hidden = true; $('onlineBadge').setAttribute('aria-expanded', 'false'); } });
+
 function logout(silent) {
   S.signingOut = true;
   sendSession('Signed out');
@@ -2868,7 +2934,20 @@ function loadApp() {
   });
 }
 
+// Top-left greeting: "Good morning · Admin" / "Welcome, <name>" (Philippine time of day).
+function setGreeting(user) {
+  const u = user || S.user || {};
+  const h = Number(new Date().toLocaleString('en-US', { timeZone: PH_TZ, hour: 'numeric', hour12: false })) % 24;
+  const part = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  const first = String(u.name || '').trim().split(/\s+/)[0] || (u.admin ? 'Admin' : 'Seller');
+  $('greetLine').textContent = `${part} · ${u.admin ? 'Admin' : 'Seller'}`;
+  $('greetName').textContent = `Welcome, ${first} 👋`;
+  $('greetName').title = u.name || '';
+}
+setInterval(() => { if (S.user) setGreeting(); }, 10 * 60 * 1000);
 function init(d) {
+  // Every open portal tells the server it is here every 30 s; only the admin sees the count.
+  if (S.fresh && !onlineTimer && !/PASTE_/.test(CONFIG.API_URL)) startOnline();
   if (S.fresh && !S.sessionLogged) {
     S.sessionLogged = true;
     const ev = S.loginKind || 'Opened portal';
@@ -2896,6 +2975,7 @@ function init(d) {
     ? `<img src="${esc(globeIcon.href)}" alt="Globe logo">`
     : esc((d.user.name || d.user.email).charAt(0).toUpperCase());
   $('whoName').textContent = d.user.name;
+  setGreeting(d.user);
   $('whoRole').textContent = (S.admin ? 'Admin' : 'Seller') + ' · ' + d.user.email;
   $('who').classList.toggle('admin', S.admin);
   $('who').style.display = '';
