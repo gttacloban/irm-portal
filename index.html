@@ -306,6 +306,18 @@ label .req{color:var(--ca)}
 .sidebar{overflow-y:auto;overscroll-behavior:contain;justify-content:flex-start}
 .sidebar > *{flex-shrink:0}
 @media(max-width:1100px){.sidebar{height:100dvh;max-height:100dvh;padding-bottom:calc(16px + env(safe-area-inset-bottom))}}
+.lbl-short{display:none}
+/* Phone: Archive · History · + Product side by side on one row under the dates. */
+@media(max-width:700px){
+  #ohDateRow .lbl-long{display:none}
+  #ohDateRow .lbl-short{display:inline}
+  #ohDateRow #archiveBtnOh,#ohDateRow .oh-add,#ohDateRow #ohAddBtn{flex:1 1 0;min-width:0;margin:0;padding:10px 6px;white-space:nowrap;text-align:center;justify-content:center}
+  #ohDateRow #archiveBtnOh[hidden],#ohDateRow #ohAddBtn[hidden]{display:none}
+  #ohDateRow{grid-template-columns:repeat(6,minmax(0,1fr))!important}
+  #ohDateRow > *{grid-column:span 6}
+  #ohDateRow > .date-field{grid-column:span 3}
+  #ohDateRow > #archiveBtnOh,#ohDateRow > .oh-add,#ohDateRow > #ohAddBtn{grid-column:span 2;width:100%;justify-self:stretch}
+}
 .wq.done{border-color:var(--line);background:transparent}
 .wq-st{font-style:normal;font-size:11px;font-weight:800;margin-right:6px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
@@ -2142,8 +2154,8 @@ body.chat-open .chat-fab{display:none}
               <label class="date-field" for="oh_to_date"><span>To Date</span><input type="date" id="oh_to_date" title="To date (reservation)" aria-label="To date" onchange="setOh('toDate',this.value)"></label>
               <button type="button" class="date-clear" onclick="clearOhDates()">Clear Dates</button>
               <button type="button" class="date-clear oh-add" id="archiveBtnOh" hidden onclick="openArchive()" title="Fulfilled and Cancelled requests older than 30 days">🗄 Archive</button>
-              <button type="button" class="date-clear oh-add" onclick="openResvHistory()">🕘 Reservation history</button>
-              <button type="button" class="date-clear" id="ohAddBtn" hidden onclick="openStockForm()">+ Add New Product</button>
+              <button type="button" class="date-clear oh-add" onclick="openResvHistory()" title="Reservation history">🕘 <span class="lbl-long">Reservation history</span><span class="lbl-short">History</span></button>
+              <button type="button" class="date-clear" id="ohAddBtn" hidden onclick="openStockForm()" title="Add New Product">+ <span class="lbl-long">Add New Product</span><span class="lbl-short">Product</span></button>
             </div>
           </div>
           <div id="ohLoose"></div>
