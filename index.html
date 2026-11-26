@@ -1646,7 +1646,17 @@ a.nav-item:hover{color:#274ebd}
 .oh-table th:nth-child(2){width:21%}.oh-table th:nth-child(6){width:45%}.oh-table th:nth-child(7){width:34%}
 .oh-table{min-width:940px}
 .oh-table td:nth-child(5){padding-right:12px}
-.oh-table .oh-st{display:inline-block;max-width:100%}
+.oh-table .oh-st{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.oh-table td:nth-child(4),.oh-table td:nth-child(5){overflow:hidden}
+/* Narrower screens: drop the Type column (the type is in the Item Desc / filters) and tighten Qty. */
+@media(max-width:1300px){
+  .oh-table th:nth-child(3),.oh-table td:nth-child(3){display:none}
+  .oh-table{min-width:760px}
+  .oh-table th:nth-child(4){width:122px}.oh-table th:nth-child(5){width:112px}.oh-table th:nth-child(1){width:64px}.oh-table th:nth-child(8){width:60px}
+  .oh-table .oh-st{font-size:11px;padding:4px 8px}
+  .oh-table .oh-step{width:28px;height:28px;min-width:28px}
+  .oh-table td{padding-left:8px;padding-right:8px}
+}
 /* "(+1 lapsed)" goes under the Qty buttons so it never runs into the Status column. */
 .oh-table td:nth-child(4) .oh-qty{flex-wrap:wrap}
 .oh-table td:nth-child(4) .oh-lap{display:block;flex-basis:100%;text-align:center;margin:2px 0 0}
