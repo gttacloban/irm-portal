@@ -318,6 +318,20 @@ label .req{color:var(--ca)}
   #ohDateRow > .date-field{grid-column:span 3}
   #ohDateRow > #archiveBtnOh,#ohDateRow > .oh-add,#ohDateRow > #ohAddBtn{grid-column:span 2;width:100%;justify-self:stretch}
 }
+/* Phone cards: label above, one chip per line across the card, everything on one row inside the chip. */
+@media(max-width:700px){
+  .oh-card .oh-card-rv{flex-direction:column;align-items:stretch;gap:6px}
+  .oh-card .oh-card-rv > span:first-child{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase}
+  .oh-card .rv-list,.oh-card .wq-list{display:flex;flex-direction:column;align-items:stretch;gap:6px;width:100%}
+  .oh-card .rv-chip,.oh-card .wq{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:8px;width:100%;max-width:100%;white-space:nowrap;box-sizing:border-box;padding:7px 10px}
+  .oh-card .rv-chip .rv-po,.oh-card .wq .wq-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .oh-card .rv-chip .rv-date{display:none}
+  .oh-card .rv-chip > *:not(.rv-po),.oh-card .wq > *:not(.wq-name){flex:0 0 auto}
+  .oh-card .rv-chip button,.oh-card .wq button{white-space:nowrap}
+  .oh-card .rv-chip .rv-meta,.oh-card .rv-chip .rv-btns{display:flex;flex-wrap:nowrap;align-items:center;gap:6px}
+  .oh-card .rv-chip .rv-btns button{min-width:30px;height:30px;padding:0 8px}
+  .oh-card .lap-list{margin-bottom:0}
+}
 .wq.done{border-color:var(--line);background:transparent}
 .wq-st{font-style:normal;font-size:11px;font-weight:800;margin-right:6px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
@@ -3523,8 +3537,8 @@ function renderOnHand() {
   $('ohCards').innerHTML = (list.map(x => `<div class="card oh-card">
       <div class="top"><div><div class="nm">${esc(x.desc)}</div><div class="small mono">${esc(x.matcode)} · ${esc(x.type)}</div></div>${st(x)}</div>
       <div class="oh-card-row"><span>Qty</span>${qtyCell(x)}</div>
-      ${x._resv.length ? `<div class="oh-card-row oh-card-rv"><span>Reserved</span>${chips(x)}</div>` : ''}
-      ${waitingFor(x.id).length ? `<div class="oh-card-row oh-card-rv"><span>Waiting</span>${waitCell(x)}</div>` : ''}
+      ${(() => { const c = chips(x); return c !== '—' ? `<div class="oh-card-row oh-card-rv"><span>Reserved</span>${c}</div>` : ''; })()}
+      ${(() => { const c = waitCell(x); return c !== '—' ? `<div class="oh-card-row oh-card-rv"><span>Waiting</span>${c}</div>` : ''; })()}
       ${S.admin ? `<div class="oh-card-row oh-card-act">${actions(x)}</div>` : ''}</div>`).join('') ||
       (looseHtml ? '' : `<div class="note">${all.length ? 'No products match the filters.' : 'No products yet.'}</div>`));
   const n = filteredAll.length;
