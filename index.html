@@ -338,7 +338,7 @@ label .req{color:var(--ca)}
 .sg-item{display:block;width:100%;text-align:left;padding:11px 14px;border:0;border-bottom:1px solid var(--line);background:transparent;color:inherit;font:inherit;font-size:14px;cursor:pointer;white-space:normal}
 .sg-item:last-child{border-bottom:0}
 .sg-item:hover,.sg-item:focus{background:rgba(127,140,170,.14)}
-.cs-native{position:absolute!important;opacity:0;pointer-events:none;width:1px;height:1px}
+.cs-native{position:absolute!important;opacity:0;pointer-events:none;width:1px;height:1px;left:12px;top:100%}
 .cs-btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;padding:12px 14px;min-height:46px;border-radius:12px;border:1px solid var(--line);background:var(--input-bg,var(--card));color:inherit;font:inherit;font-size:15px;cursor:pointer}
 .cs-btn[aria-expanded="true"],.cs-btn:focus-visible{border-color:#8fb0ff;box-shadow:0 0 0 3px rgba(143,176,255,.25);outline:none}
 .cs-ph{color:var(--muted)}
@@ -4488,9 +4488,19 @@ function enhanceSelect(id) {
   wrap.addEventListener('keydown', e => { if (e.key === 'Escape' && !box.hidden) { e.stopPropagation(); close(); btn.focus(); } });
   sel.addEventListener('change', sync);
   sel._csSync = sync;
+  // Keep the button text right when the code sets .value / .selectedIndex or rebuilds the options.
+  ['value', 'selectedIndex'].forEach(k => {
+    const d = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, k);
+    Object.defineProperty(sel, k, { configurable: true, get() { return d.get.call(this); }, set(v) { d.set.call(this, v); sync(); } });
+  });
+  new MutationObserver(sync).observe(sel, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+  // Follow the select when the code disables it or hides it (style.display / hidden).
+  const syncState = () => { btn.disabled = sel.disabled; wrap.style.display = (sel.style.display === 'none' || sel.hidden) ? 'none' : ''; if (btn.disabled) close(); };
+  new MutationObserver(syncState).observe(sel, { attributes: true, attributeFilter: ['disabled', 'style', 'hidden'] }); syncState();
   sync();
 }
-enhanceSelect('st_type');
+// Form drop-downs open inside the page (not the phone's pop-up picker).
+['st_type', 'u_update_type', 'f_type', 'f_request_category', 'f_seller_admin', 'f_status', 'u_role'].forEach(enhanceSelect);
 /* ----- Vertical suggestion list under a text field (instead of the phone's sideways <datalist> strip) ----- */
 function attachSuggest(inputId, listId, source, opts) {
   opts = opts || {};
