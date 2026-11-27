@@ -2219,7 +2219,7 @@ body.chat-open .chat-fab{display:none}
             <select id="oh_rseller" aria-label="Filter by request seller" onchange="setOh('rseller',this.value)"></select>
             <select id="oh_rtype" aria-label="Filter by request type" onchange="setOh('rtype',this.value)"></select>
             <div class="date-range" id="ohDateRow" role="group" aria-label="Filter by reservation date">
-              <div class="date-range-title">📅 Resv Date Range</div>
+              <div class="date-range-title" title="Requests dated in the range, and reservations made in the range">📅 Date Range</div>
               <label class="date-field" for="oh_from"><span>From Date</span><input type="date" id="oh_from" title="From date (reservation)" aria-label="From date" onchange="setOh('from',this.value)"></label>
               <label class="date-field" for="oh_to_date"><span>To Date</span><input type="date" id="oh_to_date" title="To date (reservation)" aria-label="To date" onchange="setOh('toDate',this.value)"></label>
               <button type="button" class="date-clear" onclick="clearOhDates()">Clear Dates</button>
@@ -3337,14 +3337,16 @@ function ohTile(k, v) { S.oh[k] = S.oh[k] === v ? '' : v; S.oh.page = 1; renderO
 function setOhPageSize(v) { S.oh.size = Number(v) || 5; S.oh.page = 1; renderOnHand(); }
 function goOhPage(n) { S.oh.page = n; renderOnHand(); }
 // Request filters on the Inventory page (category, status, seller, type of the linked requests).
-const ohReqFilterOn = () => !!(S.oh.rcat || S.oh.rstatus || S.oh.rseller || S.oh.rtype);
-function ohReqMatch(r) {
+const ohReqFilterOn = () => !!(S.oh.rcat || S.oh.rstatus || S.oh.rseller || S.oh.rtype || S.oh.from || S.oh.toDate);
+const inOhDates = d => { d = String(d || '').slice(0, 10); return (!S.oh.from || d >= S.oh.from) && (!S.oh.toDate || d <= S.oh.toDate); };
+function ohReqMatch(r, skipDates) {
   const f = S.oh;
   return !r.spare && !r.pending &&
     (!f.rstatus || (f.rstatus === '__sold' ? r.status === 'Fulfilled' : statusMatches(r, f.rstatus))) &&
     (!f.rseller || r.seller === f.rseller) &&
     (!f.rtype || r.type === f.rtype) &&
-    (!f.rcat || (f.rcat === 'orders' ? r.requestCategory !== 'Reservation' : r.requestCategory === f.rcat));
+    (!f.rcat || (f.rcat === 'orders' ? r.requestCategory !== 'Reservation' : r.requestCategory === f.rcat)) &&
+    (skipDates || (!f.from && !f.toDate) || inOhDates(r.date));
 }
 // Customers shown in the Waiting column. With a Status filter (e.g. Fulfilled or Cancelled) the
 // matching finished requests show too, also old ones never linked (matched by their suggested product).
@@ -3359,7 +3361,7 @@ function ohCustQ(pid) {
 function ohWaitShown(pid) {
   const cq = ohCustQ(pid);
   const w = waitingFor(pid).map((r, i) => ({ r: r, n: i })).filter(o => (!ohReqFilterOn() || ohReqMatch(o.r)) && (!cq || reqHit(o.r, cq)));
-  if (!S.oh.rstatus && !cq) return w;   // a customer search also finds their Fulfilled / Cancelled requests
+  if (!S.oh.rstatus && !cq && !S.oh.from && !S.oh.toDate) return w;   // a customer search also finds their Fulfilled / Cancelled requests
   const inQueue = new Set(w.map(o => o.r.id));
   const held = new Set(resvList().filter(isOpenResv).map(v => v.po));
   const more = S.rows.filter(r => !r.spare && !inQueue.has(r.id) && !held.has(r.id) && ohReqMatch(r) && (!cq || reqHit(r, cq)) &&
@@ -3427,7 +3429,7 @@ function looseSectionHtml(loose, looseSold) {
 function ohLooseRequests() {
   // A product filter (Type, Stock status, Reserved, Resv dates) means "show these products":
   // requests with no product can't match it, so the section is hidden.
-  if (S.oh.type || S.oh.status || S.oh.to || S.oh.from || S.oh.toDate) return [];
+  if (S.oh.type || S.oh.status || S.oh.to) return [];
   const q = norm(S.oh.q);
   const ids = new Set(ohList().map(p => p.id));
   // With no filter, the open ones (Awaiting / Lapsed / Reserved) always show, so no customer is hidden.
@@ -3452,9 +3454,10 @@ function ohResvShown(x) {
   const cq = ohCustQ(x.id);
   if (!ohReqFilterOn() && !cq) return x._resv;
   return x._resv.filter(v => { const r = v.po && S.rows.find(y => y.id === v.po);
-    if (r) return (!ohReqFilterOn() || ohReqMatch(r)) && (!cq || reqHit(r, cq));
+    if (r) return (!ohReqFilterOn() || (ohReqMatch(r, true) && (inOhDates(v.resvDate) || inOhDates(r.date)))) && (!cq || reqHit(r, cq));
     // Old seller reservation (no PO): shown with no filter, or under the Lapsed filter when it lapsed.
-    return !cq && (!ohReqFilterOn() || (isLapsed(S.oh.rstatus) && resvState(v) === 'Lapsed' && !S.oh.rcat && !S.oh.rtype && (!S.oh.rseller || v.seller === S.oh.rseller))); });
+    const onlyDates = !S.oh.rcat && !S.oh.rstatus && !S.oh.rseller && !S.oh.rtype;
+    return !cq && (!ohReqFilterOn() || (onlyDates && inOhDates(v.resvDate)) || (isLapsed(S.oh.rstatus) && resvState(v) === 'Lapsed' && !S.oh.rcat && !S.oh.rtype && (!S.oh.rseller || v.seller === S.oh.rseller))); });
 }
 function clearOhDates() { S.oh.page = 1; S.oh.from = S.oh.toDate = ''; $('oh_from').value = $('oh_to_date').value = ''; renderOnHand(); }
 function sortOh(key) { S.oh.dir = S.oh.sort === key ? -S.oh.dir : 1; S.oh.sort = key; renderOnHand(); }
@@ -3472,7 +3475,8 @@ function ohFiltered() {
       false) &&
     (!f.to || (() => { const act = x._resv.filter(r => resvState(r) !== 'Lapsed');   // "Reserved" = active reservations only
       return f.to === '__any' ? act.length > 0 : f.to === '__none' ? !act.length : act.some(r => r.seller === f.to); })()) &&
-    ((!f.from && !f.toDate) || x._resv.some(r => (!f.from || r.resvDate >= f.from) && (!f.toDate || r.resvDate <= f.toDate))));
+    // Date range: a reservation made in the range, or a customer request dated in the range.
+    ((!f.from && !f.toDate) || x._resv.some(r => inOhDates(r.resvDate)) || ohWaitShown(x.id).length > 0));
   const k = f.sort, d = f.dir;
   const val = x => k === 'reservedTo' ? x._resv.length : k === 'waiting' ? waitingFor(x.id).length : k === 'resvDate' ? (x._resv.map(r => r.resvDate).sort()[0] || '') : x[k];
   return list.sort((a, b) => {
