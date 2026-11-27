@@ -344,6 +344,8 @@ label .req{color:var(--ca)}
 .cs-ph{color:var(--muted)}
 .cs-arrow{color:var(--muted);font-size:14px}
 .sg-item.on{background:rgba(47,168,240,.16);box-shadow:inset 3px 0 0 #2fa8f0;font-weight:700}
+.sg-add{font-weight:800;color:#7aa2ff}
+input.sg-picking{cursor:pointer;caret-color:transparent}
 .wq.done{border-color:var(--line);background:transparent}
 .wq-st{font-style:normal;font-size:11px;font-weight:800;margin-right:6px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
@@ -3578,6 +3580,7 @@ function openStockForm(id) {
   $('st_id').value = x ? x.id : '';
   $('st_mat').value = x ? x.matcode : '';
   $('st_desc').value = x ? x.desc : '';
+  if ($('st_desc')._sgPickMode) $('st_desc')._sgPickMode(true);      // opens as a list again (no keyboard)
   $('st_qty').value = x ? x.qty : 0;
   $('st_type').innerHTML = '<option value="" disabled>Select type</option>' + stockTypes().map(t => `<option>${esc(t)}</option>`).join('');
   $('st_type').value = x ? x.type : '';
@@ -4489,7 +4492,8 @@ function enhanceSelect(id) {
 }
 enhanceSelect('st_type');
 /* ----- Vertical suggestion list under a text field (instead of the phone's sideways <datalist> strip) ----- */
-function attachSuggest(inputId, listId, source) {
+function attachSuggest(inputId, listId, source, opts) {
+  opts = opts || {};
   const inp = $(inputId);
   if (!inp || inp.dataset.sg) return;
   inp.dataset.sg = '1';
@@ -4498,13 +4502,21 @@ function attachSuggest(inputId, listId, source) {
   const box = document.createElement('div'); box.className = 'sg-box'; box.hidden = true; box.setAttribute('role', 'listbox');
   wrap.appendChild(box);
   const all = () => source ? source() : [...($(listId) ? $(listId).options : [])].map(o => o.value).filter(Boolean);
+  // Pick mode (opts.addNew): the field opens the list without the keyboard; "➕ Add new item"
+  // switches it to typing and opens the keyboard.
+  const picking = () => opts.addNew && inp.dataset.pick === '1';
   const draw = () => {
-    if (inp.readOnly || inp.disabled) { box.hidden = true; return; }
-    const q = norm(inp.value), words = q.split(/\s+/).filter(Boolean);
-    const list = all().filter(v => { const n = norm(v); return n !== q && words.every(w => n.includes(w)); }).slice(0, 60);
-    box.innerHTML = list.map(v => `<button type="button" class="sg-item" role="option">${esc(v)}</button>`).join('');
-    box.hidden = !list.length;
+    if (inp.disabled || (inp.readOnly && !picking())) { box.hidden = true; return; }
+    const q = picking() ? '' : norm(inp.value), words = q.split(/\s+/).filter(Boolean);
+    const list = all().filter(v => { const n = norm(v); return (!q || n !== q) && words.every(w => n.includes(w)); }).slice(0, 80);
+    box.innerHTML = (picking() ? `<button type="button" class="sg-item sg-add" data-add="1" role="option">➕ ${esc(opts.addLabel || 'Add new item')}</button>` : '') +
+      list.map(v => `<button type="button" class="sg-item${picking() && norm(v) === norm(inp.value) ? ' on' : ''}" role="option">${esc(v)}</button>`).join('');
+    box.hidden = !box.children.length;
   };
+  if (opts.addNew) {
+    inp._sgPickMode = on => { inp.dataset.pick = on ? '1' : ''; inp.readOnly = !!on; inp.classList.toggle('sg-picking', !!on); box.hidden = true; };
+    inp._sgPickMode(true);
+  }
   inp._sgRefresh = () => { if (!box.hidden) draw(); };     // redraw an open list (e.g. after Type changed)
   inp.addEventListener('focus', draw);
   inp.addEventListener('click', draw);
@@ -4513,6 +4525,11 @@ function attachSuggest(inputId, listId, source) {
   box.addEventListener('pointerdown', e => e.preventDefault());       // keep the focus in the field
   box.addEventListener('click', e => {
     const b = e.target.closest('.sg-item'); if (!b) return;
+    if (b.dataset.add) {                       // new item: type it (keyboard opens)
+      inp._sgPickMode(false); box.hidden = true;
+      inp.focus(); inp.select();              // keeps the current name (when editing) ready to be typed over
+      return;
+    }
     inp.value = b.textContent; box.hidden = true;
     inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new Event('change', { bubbles: true }));
     box.hidden = true;
@@ -4525,7 +4542,7 @@ function attachSuggest(inputId, listId, source) {
 attachSuggest('st_desc', 'st_descs', () => {
   const t = norm($('st_type').value);
   return [...new Set(ohList().filter(x => !t || norm(x.type) === t).map(x => x.desc))].sort((a, b) => a.localeCompare(b));
-});
+}, { addNew: true, addLabel: 'Add new item' });
 // Type changed: rebuild the Item Desc list for the new type (shown again if the field has focus).
 document.addEventListener('change', e => {
   if (e.target && e.target.id === 'st_type' && $('st_desc')._sgRefresh) {
