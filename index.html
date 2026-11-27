@@ -2012,6 +2012,20 @@ body.chat-open .chat-fab{display:none}
   .welcome-row > .dash-title{flex:1 1 100%!important;max-width:100%!important;order:2}
   .welcome-row > .date-pill{order:1;margin-left:0!important;margin-right:auto!important}
 }
+/* Phone product card: compact — name + status, small Matcode · Type, then Qty − n + and ✎ 🗑 on one row. */
+@media(max-width:700px){
+  .oh-card{padding:12px 14px!important}
+  .oh-card .top{align-items:center!important}
+  .oh-card .nm{font-size:15px;line-height:1.3}
+  .oh-card .top .small{font-family:inherit!important;font-size:12px!important;color:var(--muted);margin-top:2px}
+  .oh-card .top .oh-st{font-size:11px;padding:4px 9px;white-space:nowrap;flex:0 0 auto}
+  .oh-card-qty{display:flex!important;align-items:center!important;gap:8px!important;padding-top:10px!important;flex-wrap:wrap}
+  .oh-card-qty > span:first-child{font-size:12px;margin-right:2px}
+  .oh-card-qty .oh-qty{margin-right:auto}
+  .oh-card-qty .oh-step{width:34px;height:34px;min-width:34px}
+  .oh-card-tools{display:flex;align-items:center;gap:4px}
+  .oh-card-tools button{width:34px;height:34px;padding:0;font-size:16px}
+}
 </style>
 </head>
 <body>
@@ -3579,10 +3593,10 @@ function renderOnHand() {
     : `<tr><td colspan="8" class="empty">${all.length ? 'No products match the filters.' : (S.admin ? 'No products yet. Press + Add New Product.' : 'No products in stock yet.')}</td></tr>`);
   $('ohCards').innerHTML = (list.map(x => `<div class="card oh-card">
       <div class="top"><div><div class="nm">${esc(x.desc)}</div><div class="small mono">${esc(x.matcode)} · ${esc(x.type)}</div></div>${st(x)}</div>
-      <div class="oh-card-row"><span>Qty</span>${qtyCell(x)}</div>
+      <div class="oh-card-row oh-card-qty"><span>Qty</span>${qtyCell(x)}${S.admin ? `<span class="oh-card-tools">${actions(x)}</span>` : ''}</div>
       ${(() => { const c = chips(x); return c !== '—' ? `<div class="oh-card-row oh-card-rv"><span>Reserved</span>${c}</div>` : ''; })()}
       ${(() => { const c = waitCell(x); return c !== '—' ? `<div class="oh-card-row oh-card-rv"><span>Waiting</span>${c}</div>` : ''; })()}
-      ${S.admin ? `<div class="oh-card-row oh-card-act">${actions(x)}</div>` : ''}</div>`).join('') ||
+      </div>`).join('') ||
       (looseHtml ? '' : `<div class="note">${all.length ? 'No products match the filters.' : 'No products yet.'}</div>`));
   const n = filteredAll.length;
   $('ohCount').textContent = n
