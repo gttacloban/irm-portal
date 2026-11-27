@@ -2324,8 +2324,8 @@ body.chat-open .chat-fab{display:none}
       <div><label>Mobile # <span class="req">*</span></label><input id="f_mobile" inputmode="tel" placeholder="09XXXXXXXXX" required></div>
       <div><label>Request Date <span class="req">*</span></label><input id="f_date" type="date" required></div>
       <div class="full"><label for="f_product">Inventory Product <span class="req">*</span></label>
-        <select id="f_product" hidden tabindex="-1" aria-hidden="true" onchange="productPicked()"></select>
-        <div class="color-picker" id="prodPicker">
+        <select id="f_product" aria-label="Inventory Product" onchange="productPicked()"></select>
+        <div class="color-picker" id="prodPicker" hidden style="display:none">
           <div class="color-input-row">
             <input id="f_prodSearch" readonly autocomplete="off" role="combobox" placeholder="Choose the product…"
               aria-autocomplete="list" aria-controls="prodSuggestions" aria-expanded="false">
@@ -4447,7 +4447,7 @@ function fillProductPicker(value) {
   list.forEach(x => { (groups[x.type || 'Other'] = groups[x.type || 'Other'] || []).push(x); });
   const known = !value || value === NOT_IN_INV || list.some(x => x.id === value);
   $('f_product').innerHTML = '<option value="">Choose the product…</option>' +
-    `<option value="${NOT_IN_INV}">Not in Inventory (new model)</option>` +
+    `<option value="${NOT_IN_INV}">➕ Not in Inventory (new model)</option>` +
     (known ? '' : `<option value="${esc(value)}">(product deleted)</option>`) +
     Object.keys(groups).map(g => `<optgroup label="${esc(g)}">` + groups[g].map(x =>
       `<option value="${esc(x.id)}">${esc(x.desc)} · ${esc(x.matcode)} · Qty ${formatCount(x.qty)}</option>`).join('') + '</optgroup>').join('');
