@@ -346,6 +346,9 @@ label .req{color:var(--ca)}
 .sg-item.on{background:rgba(47,168,240,.16);box-shadow:inset 3px 0 0 #2fa8f0;font-weight:700}
 .sg-add{font-weight:800;color:#7aa2ff}
 input.sg-picking{cursor:pointer;caret-color:transparent}
+/* The clock no longer pushes the title around: fixed-width digits, and on phones it sits on its own row. */
+.date-pill{font-variant-numeric:tabular-nums}
+
 .wq.done{border-color:var(--line);background:transparent}
 .wq-st{font-style:normal;font-size:11px;font-weight:800;margin-right:6px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
@@ -1984,6 +1987,13 @@ body.chat-open .chat-fab{display:none}
 .inv-table td.warn{color:#e0782a;font-weight:800}
 .inv-table td.empty{text-align:center;color:var(--muted);padding:18px}
 @media (max-width:700px){ .inv-summary{grid-template-columns:repeat(2,minmax(0,1fr))} .inv-table{font-size:12px} .inv-table th,.inv-table td{padding:8px 5px} }
+/* Phones / tablets: the clock on its own row at the top right, the title full width under it,
+   so the ticking seconds never move the title. */
+@media(max-width:900px){
+  .welcome-row{flex-wrap:wrap!important;align-items:flex-start!important}
+  .welcome-row > .dash-title{flex:1 1 100%!important;max-width:100%!important;order:2}
+  .welcome-row > .date-pill{order:1;margin-left:auto!important}
+}
 </style>
 </head>
 <body>
