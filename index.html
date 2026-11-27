@@ -2423,7 +2423,8 @@ body.chat-open .chat-fab{display:none}
       <input type="hidden" id="st_id">
       <div><label for="st_mat">Matcode <span class="req">*</span></label><input id="st_mat" placeholder="e.g. 000123" required autocomplete="off"></div>
       <div><label for="st_type">Type <span class="req">*</span></label><select id="st_type"></select></div>
-      <div class="full"><label for="st_desc">Item Desc <span class="req">*</span></label><input id="st_desc" placeholder="e.g. iPhone 17 Pro Max 256 Silver" required autocomplete="off"><datalist id="st_descs"></datalist></div>
+      <div class="full"><label for="st_desc">Item Desc <span class="req">*</span></label><select id="st_desc_pick" aria-label="Choose Item Desc" onchange="stDescPicked()"></select>
+        <input id="st_desc" placeholder="Type the new Item Desc, e.g. iPhone 17 Pro Max 256 Silver" autocomplete="off" hidden style="margin-top:8px"><datalist id="st_descs"></datalist></div>
       <div><label for="st_qty">Qty <span class="req">*</span></label><input id="st_qty" type="number" min="0" step="1" value="0" required inputmode="numeric"></div>
       <div class="full"><div class="sellernote">Qty = units free in the store. Use + / − on the row when stock arrives or is sold. Reservations are added with the Reserve button on the row.</div></div>
       <div class="full actions"><button type="button" class="btn btn-light" onclick="closeStockForm()">Cancel</button><button type="submit" class="btn btn-primary" id="stSave">Save</button></div>
@@ -3580,12 +3581,12 @@ function openStockForm(id) {
   $('st_id').value = x ? x.id : '';
   $('st_mat').value = x ? x.matcode : '';
   $('st_desc').value = x ? x.desc : '';
-  if ($('st_desc')._sgPickMode) $('st_desc')._sgPickMode(true);      // opens as a list again (no keyboard)
   $('st_qty').value = x ? x.qty : 0;
   $('st_type').innerHTML = '<option value="" disabled>Select type</option>' + stockTypes().map(t => `<option>${esc(t)}</option>`).join('');
   $('st_type').value = x ? x.type : '';
   if (!x) $('st_type').selectedIndex = 0;
   if ($('st_type')._csSync) $('st_type')._csSync();
+  fillStDescPick(x ? x.desc : '');
   $('st_descs').innerHTML = [...new Set(ohList().map(r => r.desc))].sort().map(d => `<option value="${esc(d)}">`).join('');
   $('stSave').disabled = false; $('stSave').textContent = 'Save';
   $('stockModal').classList.add('open');
@@ -4548,18 +4549,26 @@ function attachSuggest(inputId, listId, source, opts) {
   // Tapping anywhere outside the field (e.g. on Type) closes the list, so an old list never stays open.
   document.addEventListener('pointerdown', e => { if (!wrap.contains(e.target)) box.hidden = true; }, true);
 }
-// Item Desc suggestions follow the chosen Type (iPhone → only iPhone items).
-attachSuggest('st_desc', 'st_descs', () => {
-  const t = norm($('st_type').value);
-  return [...new Set(ohList().filter(x => !t || norm(x.type) === t).map(x => x.desc))].sort((a, b) => a.localeCompare(b));
-}, { addNew: true, addLabel: 'Add new item' });
-// Type changed: rebuild the Item Desc list for the new type (shown again if the field has focus).
-document.addEventListener('change', e => {
-  if (e.target && e.target.id === 'st_type' && $('st_desc')._sgRefresh) {
-    $('st_desc')._sgRefresh();
-    if (document.activeElement === $('st_desc')) $('st_desc').dispatchEvent(new Event('focus'));
-  }
-});
+// Item Desc: the phone's own picker with "➕ Add new item" first, then the items of the chosen Type.
+// "Add new item" shows a text box (the keyboard opens) to type the new name.
+const ST_NEW = '__new';
+function fillStDescPick(keep) {
+  const t = norm($('st_type').value), cur = keep != null ? keep : $('st_desc').value;
+  const list = [...new Set(ohList().filter(x => !t || norm(x.type) === t).map(x => x.desc))].sort((a, b) => a.localeCompare(b));
+  const has = cur && list.some(d => d === cur);
+  $('st_desc_pick').innerHTML = `<option value="" disabled>Choose Item Desc…</option><option value="${ST_NEW}">➕ Add new item</option>` +
+    list.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+  if (has) { $('st_desc_pick').value = cur; $('st_desc').hidden = true; }
+  else if (cur) { $('st_desc_pick').value = ST_NEW; $('st_desc').hidden = false; }      // a name not in the list (editing)
+  else { $('st_desc_pick').selectedIndex = 0; $('st_desc').hidden = true; }
+}
+function stDescPicked() {
+  const v = $('st_desc_pick').value;
+  // Editing a product keeps its current name in the box to change it; a new product starts empty.
+  if (v === ST_NEW) { $('st_desc').hidden = false; if (!$('st_id').value) $('st_desc').value = ''; $('st_desc').focus(); $('st_desc').select(); }
+  else { $('st_desc').value = v; $('st_desc').hidden = true; }
+}
+$('st_type').addEventListener('change', () => fillStDescPick($('st_desc_pick').value === ST_NEW ? $('st_desc').value : ''));
 attachSuggest('f_handset', 'dl_handset');
 /* ----- Product dropdown (same look as the color list) ----- */
 let prodShowAll = false, prodChoices = [];
