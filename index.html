@@ -246,7 +246,25 @@ label .req{color:var(--ca)}
 .lg-table tbody tr:hover td{background:rgba(127,140,170,.08)}
 .lg-table .lg-name{font-weight:700;white-space:normal}
 .lg-st{display:inline-block;min-width:92px;text-align:center;font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;color:var(--c);background:color-mix(in srgb,var(--c) 16%,transparent);border:1px solid color-mix(in srgb,var(--c) 35%,transparent)}
-@media(max-width:700px){.lg-table th:nth-child(3),.lg-table td:nth-child(3),.lg-table th:nth-child(5),.lg-table td:nth-child(5){display:none}}
+/* Phone: each customer as a small card — PO + status on top, name, then date · seller · category. */
+@media(max-width:700px){
+  .lg-table,.lg-table tbody{display:block;width:100%!important;min-width:0!important;max-width:100%}
+  .lg-table thead{display:none}
+  .lg-table tr{display:flex;flex-wrap:wrap;align-items:center;gap:3px 8px;padding:9px 12px;border-top:1px solid var(--line);width:100%;box-sizing:border-box}
+  .oh-loose .lg,.oh-loose .lg-scroll{max-width:100%;min-width:0;width:100%;overflow:hidden;box-sizing:border-box;flex-shrink:0}
+  .oh-loose,.oh-loose .lg-wrap{min-width:0;max-width:100%}
+  .lg-table td.lg-name{white-space:normal!important}
+  .oh-loose .lg-wrap{padding-right:0}
+  .oh-loose .lg-table td{display:block;padding:0!important;border:0!important;white-space:normal!important;width:auto!important}
+  .lg-table td:nth-child(1){order:1;font-weight:700}
+  .lg-table td:nth-child(6){order:2;margin-left:auto}
+  .lg-table td:nth-child(2){order:3;flex:1 1 100%}
+  .lg-table td:nth-child(4){order:4;font-size:12px;color:var(--muted)}
+  .lg-table td:nth-child(3){order:5;font-size:12px;color:var(--muted)}
+  .lg-table td:nth-child(5){order:6;font-size:12px;color:var(--muted)}
+  .lg-table td:nth-child(3)::before,.lg-table td:nth-child(5):not(:empty)::before{content:'· '}
+  .lg-scroll{overflow:visible}
+}
 .removed-view{display:none!important}
 .custodian{display:flex;flex-direction:row;align-items:center;gap:12px;margin-top:14px;text-align:left}
 .cust-avatar{width:52px;height:52px;border-radius:50%;object-fit:cover;background:#fff;padding:3px;border:0;box-shadow:0 4px 14px rgba(0,0,0,.35);flex:0 0 auto}
