@@ -334,9 +334,16 @@ label .req{color:var(--ca)}
 }
 .sg-wrap{position:relative}
 .sg-box{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:80;max-height:260px;overflow-y:auto;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;background:var(--card,#1c2a44);box-shadow:0 14px 30px rgba(0,0,0,.35)}
+.sg-box[hidden]{display:none!important}
 .sg-item{display:block;width:100%;text-align:left;padding:11px 14px;border:0;border-bottom:1px solid var(--line);background:transparent;color:inherit;font:inherit;font-size:14px;cursor:pointer;white-space:normal}
 .sg-item:last-child{border-bottom:0}
 .sg-item:hover,.sg-item:focus{background:rgba(127,140,170,.14)}
+.cs-native{position:absolute!important;opacity:0;pointer-events:none;width:1px;height:1px}
+.cs-btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;padding:12px 14px;min-height:46px;border-radius:12px;border:1px solid var(--line);background:var(--input-bg,var(--card));color:inherit;font:inherit;font-size:15px;cursor:pointer}
+.cs-btn[aria-expanded="true"],.cs-btn:focus-visible{border-color:#8fb0ff;box-shadow:0 0 0 3px rgba(143,176,255,.25);outline:none}
+.cs-ph{color:var(--muted)}
+.cs-arrow{color:var(--muted);font-size:14px}
+.sg-item.on{background:rgba(47,168,240,.16);box-shadow:inset 3px 0 0 #2fa8f0;font-weight:700}
 .wq.done{border-color:var(--line);background:transparent}
 .wq-st{font-style:normal;font-size:11px;font-weight:800;margin-right:6px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
@@ -2413,7 +2420,7 @@ body.chat-open .chat-fab{display:none}
     <form class="fgrid" id="stockForm" onsubmit="saveStock(event)">
       <input type="hidden" id="st_id">
       <div><label for="st_mat">Matcode <span class="req">*</span></label><input id="st_mat" placeholder="e.g. 000123" required autocomplete="off"></div>
-      <div><label for="st_type">Type <span class="req">*</span></label><select id="st_type" required></select></div>
+      <div><label for="st_type">Type <span class="req">*</span></label><select id="st_type"></select></div>
       <div class="full"><label for="st_desc">Item Desc <span class="req">*</span></label><input id="st_desc" placeholder="e.g. iPhone 17 Pro Max 256 Silver" required autocomplete="off"><datalist id="st_descs"></datalist></div>
       <div><label for="st_qty">Qty <span class="req">*</span></label><input id="st_qty" type="number" min="0" step="1" value="0" required inputmode="numeric"></div>
       <div class="full"><div class="sellernote">Qty = units free in the store. Use + / − on the row when stock arrives or is sold. Reservations are added with the Reserve button on the row.</div></div>
@@ -3575,6 +3582,7 @@ function openStockForm(id) {
   $('st_type').innerHTML = '<option value="" disabled>Select type</option>' + stockTypes().map(t => `<option>${esc(t)}</option>`).join('');
   $('st_type').value = x ? x.type : '';
   if (!x) $('st_type').selectedIndex = 0;
+  if ($('st_type')._csSync) $('st_type')._csSync();
   $('st_descs').innerHTML = [...new Set(ohList().map(r => r.desc))].sort().map(d => `<option value="${esc(d)}">`).join('');
   $('stSave').disabled = false; $('stSave').textContent = 'Save';
   $('stockModal').classList.add('open');
@@ -4443,6 +4451,43 @@ function fillProductPicker(value) {
   setProdLabel();
 }
 
+
+/* ----- In-page drop-down for a <select> (same look as the Item Desc list, instead of the phone's picker) ----- */
+function enhanceSelect(id) {
+  const sel = $(id);
+  if (!sel || sel._csSync) return;
+  sel.classList.add('cs-native');
+  const wrap = document.createElement('div'); wrap.className = 'sg-wrap cs-wrap';
+  sel.parentNode.insertBefore(wrap, sel); wrap.appendChild(sel);
+  const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'cs-btn';
+  btn.setAttribute('aria-haspopup', 'listbox'); btn.setAttribute('aria-expanded', 'false');
+  const box = document.createElement('div'); box.className = 'sg-box'; box.hidden = true; box.setAttribute('role', 'listbox');
+  wrap.appendChild(btn); wrap.appendChild(box);
+  const lbl = document.querySelector(`label[for="${id}"]`); if (lbl) lbl.addEventListener('click', e => { e.preventDefault(); btn.focus(); });
+  const sync = () => {
+    const o = sel.options[sel.selectedIndex];
+    btn.innerHTML = `<span class="${!sel.value ? 'cs-ph' : ''}">${esc(o ? o.text : '')}</span><span class="cs-arrow" aria-hidden="true">▾</span>`;
+  };
+  const close = () => { box.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  const open = () => {
+    box.innerHTML = [...sel.options].filter(o => !o.disabled).map(o =>
+      `<button type="button" class="sg-item${o.value === sel.value ? ' on' : ''}" role="option" data-v="${esc(o.value)}">${esc(o.text)}</button>`).join('');
+    box.hidden = false; btn.setAttribute('aria-expanded', 'true');
+    const on = box.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+  };
+  btn.addEventListener('click', () => box.hidden ? open() : close());
+  box.addEventListener('click', e => {
+    const b = e.target.closest('.sg-item'); if (!b) return;
+    sel.value = b.dataset.v; sync(); close();
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  document.addEventListener('pointerdown', e => { if (!wrap.contains(e.target)) close(); }, true);
+  wrap.addEventListener('keydown', e => { if (e.key === 'Escape' && !box.hidden) { e.stopPropagation(); close(); btn.focus(); } });
+  sel.addEventListener('change', sync);
+  sel._csSync = sync;
+  sync();
+}
+enhanceSelect('st_type');
 /* ----- Vertical suggestion list under a text field (instead of the phone's sideways <datalist> strip) ----- */
 function attachSuggest(inputId, listId, source) {
   const inp = $(inputId);
