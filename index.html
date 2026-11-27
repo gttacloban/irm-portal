@@ -4500,7 +4500,7 @@ function enhanceSelect(id) {
   sync();
 }
 // Form drop-downs open inside the page (not the phone's pop-up picker).
-['st_type', 'u_update_type', 'f_type', 'f_request_category', 'f_seller_admin', 'f_status', 'u_role'].forEach(enhanceSelect);
+// (Turned off: the form drop-downs use the phone's own picker.) To use the in-page list again: enhanceSelect('<select id>').
 /* ----- Vertical suggestion list under a text field (instead of the phone's sideways <datalist> strip) ----- */
 function attachSuggest(inputId, listId, source, opts) {
   opts = opts || {};
