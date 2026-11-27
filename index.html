@@ -4415,6 +4415,10 @@ function duplicateError(o) {
       return `Mobile # ${o.mobile} already belongs to ${r.first} ${r.last} (${r.id}). One mobile number per customer.`;
     if (checkWl && norm(r.waitlist) === norm(o.waitlist))
       return `Waitlist # ${o.waitlist} is already used by ${r.first} ${r.last} (${r.id}). Each Waitlist # must be unique.`;
+    // Same name + same mobile with a request still open → no second request.
+    if (!o.id && mob.length === 10 && name !== 'n/a n/a' && digitsOnly(r.mobile) === mob &&
+        norm(r.first + ' ' + r.last) === name && !/^(fulfilled|cancelled)$/i.test(String(r.status || '').trim()))
+      return `${r.first} ${r.last} (${o.mobile}) already has request ${r.id} (${r.status}). Edit that request instead of making a new one.`;
   }
   return '';
 }
