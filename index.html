@@ -4444,7 +4444,7 @@ function fillProductPicker(value) {
 }
 
 /* ----- Vertical suggestion list under a text field (instead of the phone's sideways <datalist> strip) ----- */
-function attachSuggest(inputId, listId) {
+function attachSuggest(inputId, listId, source) {
   const inp = $(inputId);
   if (!inp || inp.dataset.sg) return;
   inp.dataset.sg = '1';
@@ -4452,7 +4452,7 @@ function attachSuggest(inputId, listId) {
   inp.parentNode.insertBefore(wrap, inp); wrap.appendChild(inp);
   const box = document.createElement('div'); box.className = 'sg-box'; box.hidden = true; box.setAttribute('role', 'listbox');
   wrap.appendChild(box);
-  const all = () => [...($(listId) ? $(listId).options : [])].map(o => o.value).filter(Boolean);
+  const all = () => source ? source() : [...($(listId) ? $(listId).options : [])].map(o => o.value).filter(Boolean);
   const draw = () => {
     if (inp.readOnly || inp.disabled) { box.hidden = true; return; }
     const q = norm(inp.value), words = q.split(/\s+/).filter(Boolean);
@@ -4461,6 +4461,7 @@ function attachSuggest(inputId, listId) {
     box.hidden = !list.length;
   };
   inp.addEventListener('focus', draw);
+  inp.addEventListener('click', draw);
   inp.addEventListener('input', draw);
   inp.addEventListener('keydown', e => { if (e.key === 'Escape' && !box.hidden) { e.stopPropagation(); box.hidden = true; } });
   box.addEventListener('pointerdown', e => e.preventDefault());       // keep the focus in the field
@@ -4472,7 +4473,12 @@ function attachSuggest(inputId, listId) {
   });
   inp.addEventListener('blur', () => setTimeout(() => { box.hidden = true; }, 120));
 }
-attachSuggest('st_desc', 'st_descs');
+// Item Desc suggestions follow the chosen Type (iPhone → only iPhone items).
+attachSuggest('st_desc', 'st_descs', () => {
+  const t = norm($('st_type').value);
+  return [...new Set(ohList().filter(x => !t || norm(x.type) === t).map(x => x.desc))].sort((a, b) => a.localeCompare(b));
+});
+$('st_type').addEventListener('change', () => { if (document.activeElement === $('st_desc')) $('st_desc').dispatchEvent(new Event('input')); });
 attachSuggest('f_handset', 'dl_handset');
 /* ----- Product dropdown (same look as the color list) ----- */
 let prodShowAll = false, prodChoices = [];
