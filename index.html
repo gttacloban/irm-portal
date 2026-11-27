@@ -4473,13 +4473,21 @@ function attachSuggest(inputId, listId, source) {
     box.hidden = true;
   });
   inp.addEventListener('blur', () => setTimeout(() => { box.hidden = true; }, 120));
+  // Tapping anywhere outside the field (e.g. on Type) closes the list, so an old list never stays open.
+  document.addEventListener('pointerdown', e => { if (!wrap.contains(e.target)) box.hidden = true; }, true);
 }
 // Item Desc suggestions follow the chosen Type (iPhone → only iPhone items).
 attachSuggest('st_desc', 'st_descs', () => {
   const t = norm($('st_type').value);
   return [...new Set(ohList().filter(x => !t || norm(x.type) === t).map(x => x.desc))].sort((a, b) => a.localeCompare(b));
 });
-['change', 'input'].forEach(ev => $('st_type').addEventListener(ev, () => $('st_desc')._sgRefresh && $('st_desc')._sgRefresh()));
+// Type changed: rebuild the Item Desc list for the new type (shown again if the field has focus).
+document.addEventListener('change', e => {
+  if (e.target && e.target.id === 'st_type' && $('st_desc')._sgRefresh) {
+    $('st_desc')._sgRefresh();
+    if (document.activeElement === $('st_desc')) $('st_desc').dispatchEvent(new Event('focus'));
+  }
+});
 attachSuggest('f_handset', 'dl_handset');
 /* ----- Product dropdown (same look as the color list) ----- */
 let prodShowAll = false, prodChoices = [];
