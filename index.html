@@ -332,6 +332,11 @@ label .req{color:var(--ca)}
   .oh-card .rv-chip .rv-btns button{min-width:30px;height:30px;padding:0 8px}
   .oh-card .lap-list{margin-bottom:0}
 }
+.sg-wrap{position:relative}
+.sg-box{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:80;max-height:260px;overflow-y:auto;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;background:var(--card,#1c2a44);box-shadow:0 14px 30px rgba(0,0,0,.35)}
+.sg-item{display:block;width:100%;text-align:left;padding:11px 14px;border:0;border-bottom:1px solid var(--line);background:transparent;color:inherit;font:inherit;font-size:14px;cursor:pointer;white-space:normal}
+.sg-item:last-child{border-bottom:0}
+.sg-item:hover,.sg-item:focus{background:rgba(127,140,170,.14)}
 .wq.done{border-color:var(--line);background:transparent}
 .wq-st{font-style:normal;font-size:11px;font-weight:800;margin-right:6px}
 .wq-lap{font-style:normal;font-size:11px;font-weight:700;color:#b07cf0}
@@ -2324,7 +2329,7 @@ body.chat-open .chat-fab{display:none}
           </div>
         </div>
         <div class="hint">Choose the product from Inventory (On-Hand Stock). Choose <b>Not in Inventory</b> only for a model that is not in the list yet.</div></div>
-      <div><label>Handset Description <span class="req">*</span></label><input id="f_handset" list="dl_handset" placeholder="e.g. iPhone 17 Pro Max 256GB" required></div>
+      <div><label>Handset Description <span class="req">*</span></label><input id="f_handset" placeholder="e.g. iPhone 17 Pro Max 256GB" required autocomplete="off"></div>
       <div>
         <div class="color-label-row">
           <label for="f_color">Exact Color <span class="req">*</span></label>
@@ -2409,7 +2414,7 @@ body.chat-open .chat-fab{display:none}
       <input type="hidden" id="st_id">
       <div><label for="st_mat">Matcode <span class="req">*</span></label><input id="st_mat" placeholder="e.g. 000123" required autocomplete="off"></div>
       <div><label for="st_type">Type <span class="req">*</span></label><select id="st_type" required></select></div>
-      <div class="full"><label for="st_desc">Item Desc <span class="req">*</span></label><input id="st_desc" list="st_descs" placeholder="e.g. iPhone 17 Pro Max 256 Silver" required autocomplete="off"><datalist id="st_descs"></datalist></div>
+      <div class="full"><label for="st_desc">Item Desc <span class="req">*</span></label><input id="st_desc" placeholder="e.g. iPhone 17 Pro Max 256 Silver" required autocomplete="off"><datalist id="st_descs"></datalist></div>
       <div><label for="st_qty">Qty <span class="req">*</span></label><input id="st_qty" type="number" min="0" step="1" value="0" required inputmode="numeric"></div>
       <div class="full"><div class="sellernote">Qty = units free in the store. Use + / − on the row when stock arrives or is sold. Reservations are added with the Reserve button on the row.</div></div>
       <div class="full actions"><button type="button" class="btn btn-light" onclick="closeStockForm()">Cancel</button><button type="submit" class="btn btn-primary" id="stSave">Save</button></div>
@@ -4437,6 +4442,38 @@ function fillProductPicker(value) {
   $('f_product').value = value || '';
   setProdLabel();
 }
+
+/* ----- Vertical suggestion list under a text field (instead of the phone's sideways <datalist> strip) ----- */
+function attachSuggest(inputId, listId) {
+  const inp = $(inputId);
+  if (!inp || inp.dataset.sg) return;
+  inp.dataset.sg = '1';
+  const wrap = document.createElement('div'); wrap.className = 'sg-wrap';
+  inp.parentNode.insertBefore(wrap, inp); wrap.appendChild(inp);
+  const box = document.createElement('div'); box.className = 'sg-box'; box.hidden = true; box.setAttribute('role', 'listbox');
+  wrap.appendChild(box);
+  const all = () => [...($(listId) ? $(listId).options : [])].map(o => o.value).filter(Boolean);
+  const draw = () => {
+    if (inp.readOnly || inp.disabled) { box.hidden = true; return; }
+    const q = norm(inp.value), words = q.split(/\s+/).filter(Boolean);
+    const list = all().filter(v => { const n = norm(v); return n !== q && words.every(w => n.includes(w)); }).slice(0, 60);
+    box.innerHTML = list.map(v => `<button type="button" class="sg-item" role="option">${esc(v)}</button>`).join('');
+    box.hidden = !list.length;
+  };
+  inp.addEventListener('focus', draw);
+  inp.addEventListener('input', draw);
+  inp.addEventListener('keydown', e => { if (e.key === 'Escape' && !box.hidden) { e.stopPropagation(); box.hidden = true; } });
+  box.addEventListener('pointerdown', e => e.preventDefault());       // keep the focus in the field
+  box.addEventListener('click', e => {
+    const b = e.target.closest('.sg-item'); if (!b) return;
+    inp.value = b.textContent; box.hidden = true;
+    inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new Event('change', { bubbles: true }));
+    box.hidden = true;
+  });
+  inp.addEventListener('blur', () => setTimeout(() => { box.hidden = true; }, 120));
+}
+attachSuggest('st_desc', 'st_descs');
+attachSuggest('f_handset', 'dl_handset');
 /* ----- Product dropdown (same look as the color list) ----- */
 let prodShowAll = false, prodChoices = [];
 function prodLabel(v) {
